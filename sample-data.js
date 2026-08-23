@@ -1,6 +1,6 @@
 /**
  * ទិន្នន័យគំរូសម្រាប់ប្រព័ន្ធស្ថិតិជំរឿនប្រជាជនភូមិ
- * Sample Census Data for Cambodian Village
+ * Sample Census Data for Cambodian Village with GPS & Grade-level Education
  */
 
 const DEFAULT_VILLAGE_INFO = {
@@ -11,7 +11,9 @@ const DEFAULT_VILLAGE_INFO = {
   villageChief: "លោក អ៊ុ ឈុនហេង",
   chiefPhone: "012 345 678",
   censusYear: "២០២៦",
-  censusDate: "២០២៦-០៨-២០"
+  censusDate: "២០២៦-០៨-២០",
+  centerLat: 11.4528,
+  centerLng: 104.9184
 };
 
 const SAMPLE_HOUSEHOLDS = [
@@ -20,13 +22,15 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "១២",
     groupNumber: "១",
     streetNumber: "ផ្លូវបេតុងលេខ ០១",
+    latitude: "11.4532",
+    longitude: "104.9181",
     povertyStatus: "none", // none, idpoor_1, idpoor_2, vulnerable
-    housingType: "ផ្ទះឈើលើថ្មក្រោម", // ផ្ទះថ្ម, ផ្ទះឈើលើថ្មក្រោម, ផ្ទះឈើប្រក់សង្កសី, ផ្ទះស្លឹក
+    housingType: "ផ្ទះឈើលើថ្មក្រោម",
     electricity: true,
     cleanWater: true,
     sanitationToilet: true,
-    landArea: "1200", // m2
-    agriculturalLand: "2.5", // Hectares
+    landArea: "1200",
+    agriculturalLand: "2.5",
     note: "គ្រួសារគំរូក្នុងភូមិ",
     createdAt: "2026-08-10",
     members: [
@@ -38,11 +42,11 @@ const SAMPLE_HOUSEHOLDS = [
         dob: "1975-05-12",
         idCardNumber: "020456789",
         phone: "012 889 900",
-        relation: "head", // head, spouse, son, daughter, parent, relative, other
-        maritalStatus: "married", // single, married, widowed, divorced
-        occupation: "កសិករ", // កសិករ, អាជីវករ, មន្ត្រីរាជការ, គ្រូបង្រៀន, កម្មកររោងចក្រ, សិស្ស/និស្សិត, គ្មានការងារ, ផ្សេងៗ
-        education: "បឋមសិក្សា", // មិនបានរៀន, បឋមសិក្សា, អនុវិទ្យាល័យ, វិទ្យាល័យ, បរិញ្ញាបត្រ, ក្រោយបរិញ្ញាបត្រ
-        disability: "none", // none, physical, visual, hearing, mental, other
+        relation: "head",
+        maritalStatus: "married",
+        occupation: "កសិករ",
+        education: "ថ្នាក់ទី ៦",
+        disability: "none",
         voter: true
       },
       {
@@ -56,7 +60,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "spouse",
         maritalStatus: "married",
         occupation: "អាជីវករ",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៩",
         disability: "none",
         voter: true
       },
@@ -71,7 +75,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "son",
         maritalStatus: "single",
         occupation: "សិស្ស/និស្សិត",
-        education: "បរិញ្ញាបត្រ",
+        education: "សាកលវិទ្យាល័យ",
         disability: "none",
         voter: true
       },
@@ -86,7 +90,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "daughter",
         maritalStatus: "single",
         occupation: "សិស្ស/និស្សិត",
-        education: "អនុវិទ្យាល័យ",
+        education: "ថ្នាក់ទី ៨",
         disability: "none",
         voter: false
       }
@@ -97,6 +101,8 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "១៨",
     groupNumber: "១",
     streetNumber: "ផ្លូវលំលេខ ០២",
+    latitude: "11.4545",
+    longitude: "104.9192",
     povertyStatus: "idpoor_1",
     housingType: "ផ្ទះឈើប្រក់សង្កសី",
     electricity: true,
@@ -133,7 +139,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "son",
         maritalStatus: "single",
         occupation: "កម្មករសំណង់",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៤",
         disability: "physical",
         voter: true
       }
@@ -144,6 +150,8 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "២៥",
     groupNumber: "២",
     streetNumber: "ផ្លូវបេតុងលេខ ០១",
+    latitude: "11.4520",
+    longitude: "104.9175",
     povertyStatus: "none",
     housingType: "ផ្ទះថ្ម",
     electricity: true,
@@ -165,7 +173,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "head",
         maritalStatus: "married",
         occupation: "គ្រូបង្រៀន",
-        education: "បរិញ្ញាបត្រ",
+        education: "សាកលវិទ្យាល័យ",
         disability: "none",
         voter: true
       },
@@ -180,7 +188,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "spouse",
         maritalStatus: "married",
         occupation: "មន្ត្រីរាជការ",
-        education: "បរិញ្ញាបត្រ",
+        education: "សាកលវិទ្យាល័យ",
         disability: "none",
         voter: true
       },
@@ -195,7 +203,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "son",
         maritalStatus: "single",
         occupation: "សិស្ស/និស្សិត",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៧",
         disability: "none",
         voter: false
       },
@@ -210,7 +218,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "daughter",
         maritalStatus: "single",
         occupation: "សិស្ស/និស្សិត",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៣",
         disability: "none",
         voter: false
       }
@@ -221,6 +229,8 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "០៥",
     groupNumber: "២",
     streetNumber: "ផ្លូវលំលេខ ០៣",
+    latitude: "11.4512",
+    longitude: "104.9198",
     povertyStatus: "idpoor_2",
     housingType: "ផ្ទះឈើប្រក់សង្កសី",
     electricity: true,
@@ -242,7 +252,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "head",
         maritalStatus: "married",
         occupation: "កម្មកររោងចក្រ",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៥",
         disability: "none",
         voter: true
       },
@@ -257,7 +267,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "spouse",
         maritalStatus: "married",
         occupation: "កម្មកររោងចក្រ",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៥",
         disability: "none",
         voter: true
       },
@@ -271,8 +281,8 @@ const SAMPLE_HOUSEHOLDS = [
         phone: "010 998 877",
         relation: "daughter",
         maritalStatus: "single",
-        occupation: "កម្មកររោងចក្រ",
-        education: "វិទ្យាល័យ",
+        occupation: "បុគ្គលិកក្រុមហ៊ុន",
+        education: "ថ្នាក់ទី ១២",
         disability: "none",
         voter: true
       }
@@ -283,6 +293,8 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "៣៣",
     groupNumber: "៣",
     streetNumber: "ផ្លូវបេតុងលេខ ០២",
+    latitude: "11.4550",
+    longitude: "104.9165",
     povertyStatus: "vulnerable",
     housingType: "ផ្ទះឈើលើថ្មក្រោម",
     electricity: true,
@@ -304,7 +316,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "head",
         maritalStatus: "married",
         occupation: "មនុស្សចាស់/ចូលនិវត្តន៍",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៦",
         disability: "none",
         voter: true
       },
@@ -334,7 +346,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "son",
         maritalStatus: "married",
         occupation: "អាជីវករ",
-        education: "វិទ្យាល័យ",
+        education: "ជំនាញវិជ្ជាជីវៈ",
         disability: "none",
         voter: true
       },
@@ -349,7 +361,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "relative",
         maritalStatus: "married",
         occupation: "អាជីវករ",
-        education: "វិទ្យាល័យ",
+        education: "ថ្នាក់ទី ១១",
         disability: "none",
         voter: true
       },
@@ -364,7 +376,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "relative",
         maritalStatus: "single",
         occupation: "កុមារក្នុងបន្ទុក",
-        education: "មិនបានរៀន",
+        education: "មត្តេយ្យ",
         disability: "none",
         voter: false
       }
@@ -375,6 +387,8 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "៤០",
     groupNumber: "៣",
     streetNumber: "ផ្លូវលំលេខ ០១",
+    latitude: "11.4538",
+    longitude: "104.9205",
     povertyStatus: "none",
     housingType: "ផ្ទះថ្ម",
     electricity: true,
@@ -396,7 +410,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "head",
         maritalStatus: "married",
         occupation: "កសិករ",
-        education: "អនុវិទ្យាល័យ",
+        education: "ថ្នាក់ទី ៩",
         disability: "none",
         voter: true
       },
@@ -411,7 +425,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "spouse",
         maritalStatus: "married",
         occupation: "កសិករ",
-        education: "បឋមសិក្សា",
+        education: "ថ្នាក់ទី ៦",
         disability: "none",
         voter: true
       },
@@ -426,7 +440,7 @@ const SAMPLE_HOUSEHOLDS = [
         relation: "son",
         maritalStatus: "single",
         occupation: "សិស្ស/និស្សិត",
-        education: "វិទ្យាល័យ",
+        education: "ថ្នាក់ទី ១២",
         disability: "none",
         voter: true
       }

@@ -10,6 +10,32 @@ let currentTab = 'dashboard';
 let currentEditingHouseholdId = null;
 let googleSheetsUrl = localStorage.getItem('village_census_gsheet_url') || '';
 
+// Leaflet Map instances
+let villageMapInstance = null;
+let singleHouseMapInstance = null;
+let singleHouseMarker = null;
+
+// Education Options (ថ្នាក់ទី ១ ដល់ ១២, សាកលវិទ្យាល័យ, ជំនាញវិជ្ជាជីវៈ)
+const EDUCATION_OPTIONS = [
+  "មិនបានរៀន",
+  "មត្តេយ្យ",
+  "ថ្នាក់ទី ១",
+  "ថ្នាក់ទី ២",
+  "ថ្នាក់ទី ៣",
+  "ថ្នាក់ទី ៤",
+  "ថ្នាក់ទី ៥",
+  "ថ្នាក់ទី ៦",
+  "ថ្នាក់ទី ៧",
+  "ថ្នាក់ទី ៨",
+  "ថ្នាក់ទី ៩",
+  "ថ្នាក់ទី ១០",
+  "ថ្នាក់ទី ១១",
+  "ថ្នាក់ទី ១២",
+  "សាកលវិទ្យាល័យ",
+  "ជំនាញវិជ្ជាជីវៈ",
+  "ក្រោយឧត្តមសិក្សា"
+];
+
 // Khmer numbers converter
 const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
 function toKhmerNum(num) {
@@ -416,9 +442,17 @@ function renderHouseholdsTable() {
           <div class="text-xs text-slate-400 font-mono">${head.fullNameEn || ''}</div>
         </td>
         <td class="py-3 px-4 text-slate-600">
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-            ក្រុម ${toKhmerNum(hh.groupNumber)} / ផ្ទះលេខ ${toKhmerNum(hh.houseNumber)}
-          </span>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+              ក្រុម ${toKhmerNum(hh.groupNumber)} / ផ្ទះលេខ ${toKhmerNum(hh.houseNumber)}
+            </span>
+            ${hh.latitude && hh.longitude ? `
+              <button onclick="openHouseMapModal('${hh.id}')" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono bg-rose-50 text-rose-700 hover:bg-rose-100 transition border border-rose-200" title="ចុចដើម្បីមើលទីតាំងកូអរដោនេលើផែនទី">
+                <i data-lucide="map-pin" class="w-3 h-3 text-rose-500"></i>
+                <span>GPS</span>
+              </button>
+            ` : ''}
+          </div>
           <div class="text-xs text-slate-400 mt-0.5">${hh.streetNumber || ''}</div>
         </td>
         <td class="py-3 px-4 text-center">
@@ -434,6 +468,11 @@ function renderHouseholdsTable() {
           ${head.phone ? `<a href="tel:${head.phone}" class="hover:text-indigo-600">${head.phone}</a>` : '<span class="text-slate-300">គ្មាន</span>'}
         </td>
         <td class="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+          ${hh.latitude && hh.longitude ? `
+            <button onclick="openHouseMapModal('${hh.id}')" class="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="មើលទីតាំង GPS លើផែនទី">
+              <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i>
+            </button>
+          ` : ''}
           <button onclick="viewHouseholdDetail('${hh.id}')" class="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition" title="មើលលម្អិត">
             <i data-lucide="eye" class="w-4 h-4"></i>
           </button>
@@ -765,6 +804,24 @@ window.viewHouseholdDetail = function(householdId) {
           ${hh.sanitationToilet ? '✓ មានបង្គន់' : '✗ គ្មាន'}
         </span>
       </div>
+      ${hh.latitude && hh.longitude ? `
+        <div class="col-span-2 md:col-span-4 bg-indigo-50/70 p-2.5 rounded-lg flex items-center justify-between border border-indigo-100">
+          <div>
+            <span class="text-xs text-indigo-700 font-bold flex items-center gap-1">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500"></i> កូអរដោនេទីតាំងផ្ទះ (GPS)
+            </span>
+            <span class="text-xs font-mono text-slate-700 font-semibold">${hh.latitude}, ${hh.longitude}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="openHouseMapModal('${hh.id}')" class="px-2.5 py-1 bg-white hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-md flex items-center gap-1 transition">
+              <i data-lucide="map" class="w-3.5 h-3.5"></i> បង្ហាញផែនទី
+            </button>
+            <a href="https://www.google.com/maps?q=${hh.latitude},${hh.longitude}" target="_blank" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md flex items-center gap-1 transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Google Maps
+            </a>
+          </div>
+        </div>
+      ` : ''}
     </div>
 
     <!-- Members Table -->
@@ -846,6 +903,8 @@ window.openAddHouseholdModal = function() {
   // Generate next ID
   const nextId = `HH-${String(households.length + 1).padStart(3, '0')}`;
   document.getElementById('form-hh-id').value = nextId;
+  document.getElementById('form-hh-lat').value = '';
+  document.getElementById('form-hh-lng').value = '';
 
   // Clear and add first default head member
   const membersContainer = document.getElementById('form-members-container');
@@ -868,6 +927,8 @@ window.editHousehold = function(householdId) {
   document.getElementById('form-hh-house').value = hh.houseNumber || '';
   document.getElementById('form-hh-group').value = hh.groupNumber || '១';
   document.getElementById('form-hh-street').value = hh.streetNumber || '';
+  document.getElementById('form-hh-lat').value = hh.latitude || '';
+  document.getElementById('form-hh-lng').value = hh.longitude || '';
   document.getElementById('form-hh-poverty').value = hh.povertyStatus || 'none';
   document.getElementById('form-hh-housing').value = hh.housingType || 'ផ្ទះឈើលើថ្មក្រោម';
   document.getElementById('form-hh-electricity').checked = !!hh.electricity;
@@ -956,14 +1017,11 @@ window.addMemberRow = function(memberData = {}) {
         <input type="text" class="member-occupation w-full border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="${memberData.occupation || ''}" placeholder="កសិករ, អាជីវករ, ...">
       </div>
       <div>
-        <label class="block text-xs text-slate-600 mb-1 font-medium">កម្រិតវប្បធម៌</label>
+        <label class="block text-xs text-slate-600 mb-1 font-medium">កម្រិតវប្បធម៌ / ថ្នាក់រៀន</label>
         <select class="member-education w-full border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-          <option value="មិនបានរៀន" ${memberData.education === 'មិនបានរៀន' ? 'selected' : ''}>មិនបានរៀន</option>
-          <option value="បឋមសិក្សា" ${memberData.education === 'បឋមសិក្សា' ? 'selected' : ''}>បឋមសិក្សា</option>
-          <option value="អនុវិទ្យាល័យ" ${memberData.education === 'អនុវិទ្យាល័យ' ? 'selected' : ''}>អនុវិទ្យាល័យ</option>
-          <option value="វិទ្យាល័យ" ${memberData.education === 'វិទ្យាល័យ' ? 'selected' : ''}>វិទ្យាល័យ</option>
-          <option value="បរិញ្ញាបត្រ" ${memberData.education === 'បរិញ្ញាបត្រ' ? 'selected' : ''}>បរិញ្ញាបត្រ</option>
-          <option value="ក្រោយបរិញ្ញាបត្រ" ${memberData.education === 'ក្រោយបរិញ្ញាបត្រ' ? 'selected' : ''}>ក្រោយបរិញ្ញាបត្រ</option>
+          ${EDUCATION_OPTIONS.map(opt => `
+            <option value="${opt}" ${memberData.education === opt ? 'selected' : ''}>${opt}</option>
+          `).join('')}
         </select>
       </div>
       <div>
@@ -992,6 +1050,8 @@ function handleHouseholdFormSubmit(e) {
   const houseNumber = document.getElementById('form-hh-house').value.trim();
   const groupNumber = document.getElementById('form-hh-group').value;
   const streetNumber = document.getElementById('form-hh-street').value.trim();
+  const latitude = document.getElementById('form-hh-lat').value.trim();
+  const longitude = document.getElementById('form-hh-lng').value.trim();
   const povertyStatus = document.getElementById('form-hh-poverty').value;
   const housingType = document.getElementById('form-hh-housing').value;
   const electricity = document.getElementById('form-hh-electricity').checked;
@@ -1040,6 +1100,8 @@ function handleHouseholdFormSubmit(e) {
     houseNumber,
     groupNumber,
     streetNumber,
+    latitude,
+    longitude,
     povertyStatus,
     housingType,
     electricity,
@@ -1084,7 +1146,7 @@ window.deleteHousehold = function(id) {
 window.exportCensusCSV = function() {
   const stats = computeStatistics();
   let csvContent = "\uFEFF"; // UTF-8 BOM for Khmer support in Excel
-  csvContent += "ល.រ,លេខសៀវភៅគ្រួសារ,ក្រុម,ផ្ទះលេខ,ឈ្មោះមេគ្រួសារ,ឈ្មោះសមាជិក,ភេទ,ថ្ងៃខែឆ្នាំកំណើត,អាយុ,ទំនាក់ទំនង,លេខអត្តសញ្ញាណប័ណ្ណ,មុខរបរ,កម្រិតវប្បធម៌,ស្ថានភាពក្រីក្រ,ពិការភាព\n";
+  csvContent += "ល.រ,លេខសៀវភៅគ្រួសារ,ក្រុម,ផ្ទះលេខ,Latitude,Longitude,ឈ្មោះមេគ្រួសារ,ឈ្មោះសមាជិក,ភេទ,ថ្ងៃខែឆ្នាំកំណើត,អាយុ,ទំនាក់ទំនង,លេខអត្តសញ្ញាណប័ណ្ណ,មុខរបរ,កម្រិតវប្បធម៌_ថ្នាក់រៀន,ស្ថានភាពក្រីក្រ,ពិការភាព\n";
 
   let counter = 1;
   households.forEach(hh => {
@@ -1098,6 +1160,8 @@ window.exportCensusCSV = function() {
         `"${hh.id}"`,
         `"${hh.groupNumber}"`,
         `"${hh.houseNumber}"`,
+        `"${hh.latitude || ''}"`,
+        `"${hh.longitude || ''}"`,
         `"${head.fullNameKh || ''}"`,
         `"${m.fullNameKh}"`,
         `"${m.gender === 'female' ? 'ស្រី' : 'ប្រុស'}"`,
@@ -1315,7 +1379,188 @@ window.switchTab = function(tabName) {
   if (tabName === 'dashboard') {
     const stats = computeStatistics();
     renderCharts(stats);
+  } else if (tabName === 'map') {
+    setTimeout(initVillageMap, 150);
   }
+};
+
+// ==========================================
+// GPS & LEAFLET MAP LOGIC
+// ==========================================
+
+// Get current device GPS location
+window.getCurrentGPSLocation = function() {
+  if (!navigator.geolocation) {
+    alert('ឧបករណ៍ ឬ Browser របស់អ្នកមិនគាំទ្រ Geolocation API ឡើយ!');
+    return;
+  }
+
+  showToast('កំពុងចាប់យកទីតាំង GPS...', 'info');
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude.toFixed(6);
+      const lng = position.coords.longitude.toFixed(6);
+      document.getElementById('form-hh-lat').value = lat;
+      document.getElementById('form-hh-lng').value = lng;
+      showToast(`ទទួលបានទីតាំង GPS: ${lat}, ${lng}`, 'success');
+    },
+    (error) => {
+      alert('មិនអាចចាប់យកទីតាំង GPS បានទេ៖ ' + error.message + ' (សូមប្រាកដថាអ្នកបានអនុញ្ញាត Location Permission)');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+};
+
+// Initialize Village Full Map
+window.initVillageMap = function() {
+  const mapContainer = document.getElementById('village-leaflet-map');
+  if (!mapContainer || typeof L === 'undefined') return;
+
+  const validHouseholds = households.filter(h => h.latitude && h.longitude && !isNaN(parseFloat(h.latitude)) && !isNaN(parseFloat(h.longitude)));
+  
+  const markerCountBadge = document.getElementById('map-total-markers');
+  if (markerCountBadge) {
+    markerCountBadge.textContent = `📍 ${toKhmerNum(validHouseholds.length)}/${toKhmerNum(households.length)} ខ្នងផ្ទះមាន GPS`;
+  }
+
+  let centerLat = 11.4528;
+  let centerLng = 104.9184;
+
+  if (validHouseholds.length > 0) {
+    centerLat = parseFloat(validHouseholds[0].latitude);
+    centerLng = parseFloat(validHouseholds[0].longitude);
+  }
+
+  if (villageMapInstance) {
+    villageMapInstance.remove();
+    villageMapInstance = null;
+  }
+
+  villageMapInstance = L.map('village-leaflet-map').setView([centerLat, centerLng], 16);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(villageMapInstance);
+
+  const markersGroup = L.featureGroup();
+
+  validHouseholds.forEach(hh => {
+    const lat = parseFloat(hh.latitude);
+    const lng = parseFloat(hh.longitude);
+    const head = hh.members?.find(m => m.relation === 'head') || hh.members?.[0] || {};
+    const pov = getPovertyLabel(hh.povertyStatus);
+
+    // Marker color based on poverty
+    let markerColor = '#10b981'; // green for normal
+    if (hh.povertyStatus === 'idpoor_1' || hh.povertyStatus === 'idpoor_2') {
+      markerColor = '#ef4444'; // red for poor
+    } else if (hh.povertyStatus === 'vulnerable') {
+      markerColor = '#3b82f6'; // blue for vulnerable
+    }
+
+    const customIcon = L.divIcon({
+      className: 'custom-map-pin',
+      html: `
+        <div style="background-color: ${markerColor}; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+          ${hh.houseNumber}
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    const marker = L.marker([lat, lng], { icon: customIcon }).addTo(markersGroup);
+
+    const popupHtml = `
+      <div style="font-family: var(--font-khmer, sans-serif); min-width: 180px;">
+        <div style="font-weight: bold; font-size: 14px; color: #1e293b; margin-bottom: 2px;">
+          ផ្ទះលេខ ${toKhmerNum(hh.houseNumber)} (ក្រុម ${toKhmerNum(hh.groupNumber)})
+        </div>
+        <div style="font-size: 12px; color: #4338ca; font-weight: 600;">
+          មេគ្រួសារ៖ ${head.fullNameKh || '---'}
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin: 4px 0;">
+          សមាជិក៖ ${toKhmerNum(hh.members?.length || 0)} នាក់ | ស្ថានភាព៖ <strong>${pov.text}</strong>
+        </div>
+        <div style="font-size: 10px; font-family: monospace; color: #94a3b8; margin-bottom: 8px;">
+          GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button onclick="viewHouseholdDetail('${hh.id}')" style="background: #4f46e5; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer;">
+            មើលលម្អិត
+          </button>
+          <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" style="background: #e0e7ff; color: #4338ca; text-decoration: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; display: inline-block;">
+            Google Maps
+          </a>
+        </div>
+      </div>
+    `;
+
+    marker.bindPopup(popupHtml);
+  });
+
+  markersGroup.addTo(villageMapInstance);
+
+  if (validHouseholds.length > 0) {
+    villageMapInstance.fitBounds(markersGroup.getBounds().pad(0.2));
+  }
+};
+
+window.refreshVillageMap = function() {
+  initVillageMap();
+  showToast('បានផ្ទុកទិន្នន័យផែនទីឡើងវិញ!', 'info');
+};
+
+// Open Single House GPS Location Modal Map
+window.openHouseMapModal = function(householdId) {
+  const hh = households.find(h => h.id === householdId);
+  if (!hh) return;
+
+  const lat = parseFloat(hh.latitude);
+  const lng = parseFloat(hh.longitude);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    alert(`សៀវភៅគ្រួសារ ${hh.id} ពុំទាន់មានកូអរដោនេ GPS នៅឡើយទេ! សូមកែប្រែដើម្បីបញ្ចូល GPS។`);
+    return;
+  }
+
+  const head = hh.members?.find(m => m.relation === 'head') || hh.members?.[0] || {};
+  document.getElementById('house-map-modal-title').textContent = `ទីតាំងផ្ទះលេខ ${toKhmerNum(hh.houseNumber)} (មេគ្រួសារ៖ ${head.fullNameKh || '---'})`;
+  document.getElementById('house-map-coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  document.getElementById('house-map-google-link').href = `https://www.google.com/maps?q=${lat},${lng}`;
+
+  document.getElementById('house-map-modal').classList.remove('hidden');
+  document.getElementById('house-map-modal').classList.add('flex');
+  lucide.createIcons();
+
+  setTimeout(() => {
+    if (singleHouseMapInstance) {
+      singleHouseMapInstance.remove();
+      singleHouseMapInstance = null;
+    }
+
+    singleHouseMapInstance = L.map('single-house-leaflet-map').setView([lat, lng], 17);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(singleHouseMapInstance);
+
+    const houseMarker = L.marker([lat, lng]).addTo(singleHouseMapInstance);
+    houseMarker.bindPopup(`
+      <div style="font-family: var(--font-khmer, sans-serif); text-align: center;">
+        <strong>ផ្ទះលេខ ${toKhmerNum(hh.houseNumber)} (ក្រុម ${toKhmerNum(hh.groupNumber)})</strong><br>
+        <span>មេគ្រួសារ៖ ${head.fullNameKh || ''}</span>
+      </div>
+    `).openPopup();
+  }, 200);
+};
+
+window.closeHouseMapModal = function() {
+  document.getElementById('house-map-modal').classList.add('hidden');
+  document.getElementById('house-map-modal').classList.remove('flex');
 };
 
 // Toast notification

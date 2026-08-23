@@ -72,12 +72,14 @@ function doGet(e) {
         houseNumber: String(row[1]),
         groupNumber: String(row[2]),
         streetNumber: String(row[3] || ''),
-        povertyStatus: row[4] || 'none',
-        housingType: row[5] || 'ផ្ទះថ្ម',
-        electricity: row[6] === true || row[6] === 'មាន',
-        cleanWater: row[7] === true || row[7] === 'មាន',
-        sanitationToilet: row[8] === true || row[8] === 'មាន',
-        note: row[9] || '',
+        latitude: String(row[4] || ''),
+        longitude: String(row[5] || ''),
+        povertyStatus: row[6] || 'none',
+        housingType: row[7] || 'ផ្ទះថ្ម',
+        electricity: row[8] === true || row[8] === 'មាន',
+        cleanWater: row[9] === true || row[9] === 'មាន',
+        sanitationToilet: row[10] === true || row[10] === 'មាន',
+        note: row[11] || '',
         members: membersByHh[hhId] || []
       });
     }
@@ -140,6 +142,8 @@ function doPost(e) {
           hh.houseNumber,
           hh.groupNumber,
           hh.streetNumber || "",
+          hh.latitude || "",
+          hh.longitude || "",
           hh.povertyStatus,
           hh.housingType,
           hh.electricity ? "មាន" : "គ្មាន",
@@ -202,9 +206,9 @@ function setupSheets(ss) {
   let hhSheet = ss.getSheetByName("បញ្ជីគ្រួសារ");
   if (!hhSheet) {
     hhSheet = ss.insertSheet("បញ្ជីគ្រួសារ");
-    hhSheet.getRange("A1:J1").setValues([[
-      "លេខកូដគ្រួសារ", "ផ្ទះលេខ", "ក្រុមទី", "ផ្លូវ/ទីតាំង", "កម្រិតក្រីក្រ", 
-      "ប្រភេទផ្ទះ", "អគ្គិសនី", "ទឹកស្អាត", "បង្គន់", "កំណត់សម្គាល់"
+    hhSheet.getRange("A1:L1").setValues([[
+      "លេខកូដគ្រួសារ", "ផ្ទះលេខ", "ក្រុមទី", "ផ្លូវ/ទីតាំង", "Latitude", "Longitude",
+      "កម្រិតក្រីក្រ", "ប្រភេទផ្ទះ", "អគ្គិសនី", "ទឹកស្អាត", "បង្គន់", "កំណត់សម្គាល់"
     ]]).setBackground("#4f46e5").setFontColor("#ffffff").setFontWeight("bold");
   }
 
