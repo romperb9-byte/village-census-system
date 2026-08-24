@@ -182,6 +182,11 @@ function loadData() {
 
   if (savedVillage) {
     villageInfo = JSON.parse(savedVillage);
+    // Auto upgrade if browser had older demo placeholder cached
+    if (villageInfo.villageName === "ភូមិត្រពាំងថ្ម" || villageInfo.provinceName === "ខេត្តកណ្តាល") {
+      villageInfo = { ...DEFAULT_VILLAGE_INFO };
+      saveVillageInfo();
+    }
   } else {
     villageInfo = { ...DEFAULT_VILLAGE_INFO };
     saveVillageInfo();
@@ -200,9 +205,9 @@ function updateCloudSyncBadge() {
   const text = document.getElementById('cloud-sync-status-text');
   if (!badge || !text) return;
 
-  if (googleSheetsUrl && cloudAccessToken) {
+  if (googleSheetsUrl) {
     badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300';
-    text.textContent = '☁️ Cloud Sync បានត្រៀមរួច';
+    text.textContent = '☁️ Cloud Sync (ទិន្នន័យរួម)';
   } else {
     badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300';
     text.textContent = '💾 ប្រើទិន្នន័យលើម៉ាស៊ីន (Local)';
