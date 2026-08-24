@@ -11,6 +11,7 @@ let currentEditingHouseholdId = null;
 const DEFAULT_GSHEET_URL = 'https://script.google.com/macros/s/AKfycbyieVQulvaB0quLtUgtbJLDcRzUCIgP9rGclTszv9xz3q0anLNthLqibWJs7PnIKje2/exec';
 let googleSheetsUrl = localStorage.getItem('village_census_gsheet_url') || DEFAULT_GSHEET_URL;
 let enumeratorName = localStorage.getItem('village_census_enumerator') || '';
+let cloudAccessToken = sessionStorage.getItem('village_census_cloud_token') || '';
 
 // Leaflet Map instances
 let villageMapInstance = null;
@@ -47,6 +48,54 @@ const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '�
 function toKhmerNum(num) {
   if (num === null || num === undefined) return '';
   return num.toString().replace(/[0-9]/g, d => khmerDigits[parseInt(d)]);
+}
+
+// Escape untrusted values before inserting them into HTML templates.
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  })[char]);
+}
+
+function csvCell(value) {
+  let text = String(value ?? '');
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function getCloudCredentials() {
+  const url = document.getElementById('setting-gsheet-url')?.value.trim() || googleSheetsUrl;
+  const token = document.getElementById('setting-cloud-token')?.value.trim() || cloudAccessToken;
+  return { url, token };
+}
+
+function validateImportedData(data) {
+  if (!data || typeof data !== 'object' || !Array.isArray(data.households)) {
+    throw new Error('ទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ។');
+  }
+  if (data.households.length > 10000) throw new Error('ទិន្នន័យមានចំនួនលើសកំណត់។');
+  data.households.forEach(hh => {
+    if (!hh || typeof hh !== 'object' || !/^[A-Za-z0-9_-]{1,50}$/.test(String(hh.id || ''))) {
+      throw new Error('លេខកូដគ្រួសារមិនត្រឹមត្រូវ។ អនុញ្ញាតតែអក្សរ លេខ _ និង -។');
+    }
+    if (!Array.isArray(hh.members) || hh.members.length > 100) {
+      throw new Error(`បញ្ជីសមាជិកគ្រួសារ ${hh.id} មិនត្រឹមត្រូវ។`);
+    }
+  });
+  return data;
+}
+
+async function cloudRequest(payload) {
+  const { url, token } = getCloudCredentials();
+  if (!url || !token) throw new Error('សូមបញ្ចូល Cloud URL និង Access Token ក្នុងផ្ទាំងការកំណត់។');
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...payload, token })
+  });
+  const data = await response.json();
+  if (!response.ok || data.status !== 'success') throw new Error(data.message || `HTTP ${response.status}`);
+  return data;
 }
 
 // Calculate age from DOB
@@ -113,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateCloudSyncBadge();
 
   // Auto fetch from Google Sheets if URL configured
-  if (googleSheetsUrl) {
+  if (googleSheetsUrl && cloudAccessToken) {
     fetchFromGoogleSheets(true); // silent background fetch
   }
 });
@@ -143,9 +192,9 @@ function updateCloudSyncBadge() {
   const text = document.getElementById('cloud-sync-status-text');
   if (!badge || !text) return;
 
-  if (googleSheetsUrl) {
+  if (googleSheetsUrl && cloudAccessToken) {
     badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300';
-    text.textContent = '☁️ Cloud Sync (ទិន្នន័យរួម)';
+    text.textContent = '☁️ Cloud Sync បានត្រៀមរួច';
   } else {
     badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300';
     text.textContent = '💾 ប្រើទិន្នន័យលើម៉ាស៊ីន (Local)';
@@ -462,10 +511,10 @@ function renderHouseholdsTable() {
     return `
       <tr class="border-b border-slate-100 hover:bg-slate-50 transition">
         <td class="py-3 px-4 text-center font-medium text-slate-500">${toKhmerNum(index + 1)}</td>
-        <td class="py-3 px-4 font-semibold text-indigo-600">${hh.id}</td>
+        <td class="py-3 px-4 font-semibold text-indigo-600">${escapeHTML(hh.id)}</td>
         <td class="py-3 px-4">
-          <div class="font-bold text-slate-800">${head.fullNameKh || '---'}</div>
-          <div class="text-xs text-slate-400 font-mono">${head.fullNameEn || ''}</div>
+          <div class="font-bold text-slate-800">${escapeHTML(head.fullNameKh || '---')}</div>
+          <div class="text-xs text-slate-400 font-mono">${escapeHTML(head.fullNameEn || '')}</div>
         </td>
         <td class="py-3 px-4 text-slate-600">
           <div class="flex items-center gap-1.5">
@@ -479,7 +528,7 @@ function renderHouseholdsTable() {
               </button>
             ` : ''}
           </div>
-          <div class="text-xs text-slate-400 mt-0.5">${hh.streetNumber || ''}</div>
+          <div class="text-xs text-slate-400 mt-0.5">${escapeHTML(hh.streetNumber || '')}</div>
         </td>
         <td class="py-3 px-4 text-center">
           <span class="font-bold text-slate-800">${toKhmerNum(memberCount)} នាក់</span>
@@ -491,7 +540,7 @@ function renderHouseholdsTable() {
           </span>
         </td>
         <td class="py-3 px-4 text-slate-600 text-sm">
-          ${head.phone ? `<a href="tel:${head.phone}" class="hover:text-indigo-600">${head.phone}</a>` : '<span class="text-slate-300">គ្មាន</span>'}
+          ${head.phone ? `<a href="tel:${encodeURIComponent(head.phone)}" class="hover:text-indigo-600">${escapeHTML(head.phone)}</a>` : '<span class="text-slate-300">គ្មាន</span>'}
         </td>
         <td class="py-3 px-4 text-right space-x-1 whitespace-nowrap">
           ${hh.latitude && hh.longitude ? `
@@ -574,10 +623,10 @@ function renderResidentsTable() {
         <td class="py-3 px-4 text-center font-medium text-slate-500">${toKhmerNum(index + 1)}</td>
         <td class="py-3 px-4">
           <div class="font-bold text-slate-800 flex items-center gap-1.5">
-            ${m.fullNameKh}
+            ${escapeHTML(m.fullNameKh)}
             ${m.relation === 'head' ? '<span class="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold rounded">មេគ្រួសារ</span>' : ''}
           </div>
-          <div class="text-xs text-slate-400 font-mono">${m.fullNameEn || ''}</div>
+          <div class="text-xs text-slate-400 font-mono">${escapeHTML(m.fullNameEn || '')}</div>
         </td>
         <td class="py-3 px-4 text-center">
           ${m.gender === 'female' 
@@ -589,11 +638,11 @@ function renderResidentsTable() {
           <span class="text-xs text-slate-400 font-medium">អាយុ ${toKhmerNum(age)} ឆ្នាំ</span>
         </td>
         <td class="py-3 px-4 text-slate-700 font-mono text-sm">
-          ${m.idCardNumber ? m.idCardNumber : '<span class="text-slate-300">ពុំទាន់មាន</span>'}
+          ${m.idCardNumber ? escapeHTML(m.idCardNumber) : '<span class="text-slate-300">ពុំទាន់មាន</span>'}
         </td>
         <td class="py-3 px-4 text-slate-600 text-sm">
-          <div>${m.occupation || 'គ្មាន'}</div>
-          <span class="text-xs text-slate-400">${m.education || ''}</span>
+          <div>${escapeHTML(m.occupation || 'គ្មាន')}</div>
+          <span class="text-xs text-slate-400">${escapeHTML(m.education || '')}</span>
         </td>
         <td class="py-3 px-4 text-slate-600 text-sm">
           <button onclick="viewHouseholdDetail('${m.householdId}')" class="text-indigo-600 hover:underline font-medium">
@@ -1073,6 +1122,11 @@ function handleHouseholdFormSubmit(e) {
   e.preventDefault();
 
   const id = document.getElementById('form-hh-id').value.trim();
+  if (!/^[A-Za-z0-9_-]{1,50}$/.test(id)) {
+    alert('លេខកូដគ្រួសារអនុញ្ញាតតែអក្សរឡាតាំង លេខ សញ្ញា _ និង - ប៉ុណ្ណោះ។');
+    document.getElementById('form-hh-id').focus();
+    return;
+  }
   const houseNumber = document.getElementById('form-hh-house').value.trim();
   const groupNumber = document.getElementById('form-hh-group').value;
   const streetNumber = document.getElementById('form-hh-street').value.trim();
@@ -1158,7 +1212,7 @@ function handleHouseholdFormSubmit(e) {
   showToast('រក្សាទុកទិន្នន័យបានជោគជ័យ!', 'success');
 
   // Multi-Phone Cloud Auto-Sync
-  if (googleSheetsUrl) {
+  if (googleSheetsUrl && cloudAccessToken) {
     saveHouseholdToCloud(householdObj);
   }
 }
@@ -1171,17 +1225,11 @@ async function saveHouseholdToCloud(householdObj) {
       enumerator: enumeratorName || "ទូរស័ព្ទមន្ត្រី",
       household: householdObj
     };
-
-    await fetch(googleSheetsUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
+    await cloudRequest(payload);
     showToast('☁️ បានរក្សាទុកក្នុង Cloud Google Sheet រួចរាល់!', 'success');
   } catch (err) {
     console.warn('Could not sync to cloud immediately:', err);
+    showToast(`រក្សាទុកក្នុងម៉ាស៊ីនរួច ប៉ុន្តែ Cloud មានបញ្ហា៖ ${err.message}`, 'error');
   }
 }
 
@@ -1193,7 +1241,7 @@ window.deleteHousehold = function(id) {
     renderAll();
     showToast('បានលុបទិន្នន័យគ្រួសាររួចរាល់', 'info');
 
-    if (googleSheetsUrl) {
+    if (googleSheetsUrl && cloudAccessToken) {
       deleteHouseholdFromCloud(id);
     }
   }
@@ -1205,14 +1253,10 @@ async function deleteHouseholdFromCloud(id) {
       action: "DELETE_HOUSEHOLD",
       householdId: id
     };
-    await fetch(googleSheetsUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    await cloudRequest(payload);
   } catch (err) {
     console.warn('Could not delete from cloud:', err);
+    showToast(`បានលុបក្នុងម៉ាស៊ីន ប៉ុន្តែលុបពី Cloud មិនបាន៖ ${err.message}`, 'error');
   }
 };
 
@@ -1231,22 +1275,12 @@ window.exportCensusCSV = function() {
       const age = calculateAge(m.dob);
       const row = [
         counter++,
-        `"${hh.id}"`,
-        `"${hh.groupNumber}"`,
-        `"${hh.houseNumber}"`,
-        `"${hh.latitude || ''}"`,
-        `"${hh.longitude || ''}"`,
-        `"${head.fullNameKh || ''}"`,
-        `"${m.fullNameKh}"`,
-        `"${m.gender === 'female' ? 'ស្រី' : 'ប្រុស'}"`,
-        `"${m.dob}"`,
+        csvCell(hh.id), csvCell(hh.groupNumber), csvCell(hh.houseNumber),
+        csvCell(hh.latitude), csvCell(hh.longitude), csvCell(head.fullNameKh),
+        csvCell(m.fullNameKh), csvCell(m.gender === 'female' ? 'ស្រី' : 'ប្រុស'), csvCell(m.dob),
         age,
-        `"${getRelationLabel(m.relation)}"`,
-        `"${m.idCardNumber || ''}"`,
-        `"${m.occupation || ''}"`,
-        `"${m.education || ''}"`,
-        `"${pov}"`,
-        `"${getDisabilityLabel(m.disability)}"`
+        csvCell(getRelationLabel(m.relation)), csvCell(m.idCardNumber),
+        csvCell(m.occupation), csvCell(m.education), csvCell(pov), csvCell(getDisabilityLabel(m.disability))
       ];
       csvContent += row.join(",") + "\n";
     });
@@ -1260,6 +1294,7 @@ window.exportCensusCSV = function() {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
   showToast('បានទាញយកឯកសារ Excel/CSV ដោយជោគជ័យ!', 'success');
 };
 
@@ -1278,6 +1313,7 @@ window.backupDataJSON = function() {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
   showToast('បាន Backup ទិន្នន័យរួចរាល់', 'success');
 };
 
@@ -1289,7 +1325,7 @@ window.restoreDataJSON = function(e) {
   const reader = new FileReader();
   reader.onload = function(evt) {
     try {
-      const parsed = JSON.parse(evt.target.result);
+      const parsed = validateImportedData(JSON.parse(evt.target.result));
       if (parsed.villageInfo && parsed.households) {
         villageInfo = parsed.villageInfo;
         households = parsed.households;
@@ -1321,9 +1357,9 @@ window.resetDemoData = function() {
 
 // Google Sheets Integration
 window.syncToGoogleSheets = async function() {
-  const url = document.getElementById('setting-gsheet-url')?.value.trim() || googleSheetsUrl;
-  if (!url) {
-    alert('សូមបញ្ចូល Google Apps Script Web App URL នៅក្នុងផ្ទាំងការកំណត់ជាមុនសិន!');
+  const { url, token } = getCloudCredentials();
+  if (!url || !token) {
+    alert('សូមបញ្ចូល Google Apps Script Web App URL និង Access Token ជាមុនសិន!');
     switchTab('settings');
     document.getElementById('setting-gsheet-url')?.focus();
     return;
@@ -1331,24 +1367,18 @@ window.syncToGoogleSheets = async function() {
 
   googleSheetsUrl = url;
   localStorage.setItem('village_census_gsheet_url', url);
+  cloudAccessToken = token;
+  sessionStorage.setItem('village_census_cloud_token', token);
 
   showToast('កំពុងបញ្ជូនទិន្នន័យទៅ Google Sheets...', 'info');
 
   try {
     const payload = {
+      action: 'FULL_SYNC',
       villageInfo,
       households
     };
-
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors', // standard for GAS web apps cross-origin POST
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
+    await cloudRequest(payload);
     showToast('បាន Sync ទិន្នន័យទៅកាន់ Google Sheets ដោយជោគជ័យ!', 'success');
   } catch (err) {
     alert('កំហុសក្នុងការ Sync ទៅ Google Sheets: ' + err.message);
@@ -1356,10 +1386,10 @@ window.syncToGoogleSheets = async function() {
 };
 
 window.fetchFromGoogleSheets = async function(silent = false) {
-  const url = document.getElementById('setting-gsheet-url')?.value.trim() || googleSheetsUrl;
-  if (!url) {
+  const { url, token } = getCloudCredentials();
+  if (!url || !token) {
     if (!silent) {
-      alert('សូមបញ្ចូល Google Apps Script Web App URL នៅក្នុងផ្ទាំងការកំណត់ជាមុនសិន!');
+      alert('សូមបញ្ចូល Google Apps Script Web App URL និង Access Token ជាមុនសិន!');
       switchTab('settings');
       document.getElementById('setting-gsheet-url')?.focus();
     }
@@ -1368,6 +1398,8 @@ window.fetchFromGoogleSheets = async function(silent = false) {
 
   googleSheetsUrl = url;
   localStorage.setItem('village_census_gsheet_url', url);
+  cloudAccessToken = token;
+  sessionStorage.setItem('village_census_cloud_token', token);
   updateCloudSyncBadge();
 
   if (!silent) {
@@ -1375,8 +1407,14 @@ window.fetchFromGoogleSheets = async function(silent = false) {
   }
 
   try {
-    const res = await fetch(url);
-    const data = await res.json();
+    const requestUrl = new URL(url);
+    requestUrl.searchParams.set('token', token);
+    const res = await fetch(requestUrl.toString());
+    const rawData = await res.json();
+    if (!res.ok || rawData.status !== 'success') {
+      throw new Error(rawData.message || `HTTP ${res.status}`);
+    }
+    const data = validateImportedData(rawData);
 
     if (data.status === 'success' && data.households) {
       if (data.villageInfo) villageInfo = data.villageInfo;
@@ -1416,6 +1454,8 @@ function populateSettingsForm() {
   if (enumInput) {
     enumInput.value = enumeratorName || '';
   }
+  const tokenInput = document.getElementById('setting-cloud-token');
+  if (tokenInput) tokenInput.value = cloudAccessToken;
 }
 
 function handleSettingsFormSubmit(e) {
@@ -1436,6 +1476,10 @@ function handleSettingsFormSubmit(e) {
   const enumVal = document.getElementById('setting-enumerator-name')?.value.trim() || '';
   enumeratorName = enumVal;
   localStorage.setItem('village_census_enumerator', enumVal);
+
+  cloudAccessToken = document.getElementById('setting-cloud-token')?.value.trim() || '';
+  if (cloudAccessToken) sessionStorage.setItem('village_census_cloud_token', cloudAccessToken);
+  else sessionStorage.removeItem('village_census_cloud_token');
 
   saveVillageInfo();
   renderAll();

@@ -3,8 +3,21 @@
  * អនុញ្ញាតឱ្យទូរស័ព្ទច្រើន (Multiple Phones) បញ្ចូលទិន្នន័យរួមគ្នាក្នុងពេលតែមួយបាន
  */
 
+function jsonResponse(payload) {
+  return ContentService.createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function isAuthorized(token) {
+  const expected = PropertiesService.getScriptProperties().getProperty('CLOUD_ACCESS_TOKEN');
+  return Boolean(expected && token && String(token) === String(expected));
+}
+
 function doGet(e) {
   try {
+    if (!isAuthorized(e && e.parameter && e.parameter.token)) {
+      return jsonResponse({ status: 'error', message: 'Unauthorized: Cloud Access Token មិនត្រឹមត្រូវ។' });
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     setupSheets(ss);
     
@@ -91,10 +104,12 @@ function doGet(e) {
 function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
+    const data = JSON.parse(e && e.postData ? e.postData.contents : '{}');
+    if (!isAuthorized(data.token)) {
+      return jsonResponse({ status: 'error', message: 'Unauthorized: Cloud Access Token មិនត្រឹមត្រូវ។' });
+    }
     // Lock for concurrent multi-phone writes (up to 20 seconds wait)
     lock.waitLock(20000);
-
-    const data = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     setupSheets(ss);
     
@@ -269,7 +284,7 @@ function doPost(e) {
       message: error.toString()
     })).setMimeType(ContentService.MimeType.JSON);
   } finally {
-    lock.releaseLock();
+    if (lock.hasLock()) lock.releaseLock();
   }
 }
 
