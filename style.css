@@ -41,6 +41,63 @@ body {
   background: #94a3b8;
 }
 
+/* Leaflet Map custom fixes */
+.leaflet-container {
+  font-family: var(--font-khmer) !important;
+  z-index: 10 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  padding: 4px !important;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px !important;
+  line-height: 1.4 !important;
+}
+
+/* Custom Map Marker styles */
+.custom-map-pin {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-map-pin div {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-map-pin:hover div {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* GPS Pulse effect for current location */
+.gps-pulse {
+  width: 14px;
+  height: 14px;
+  background: #3b82f6;
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(59, 130, 246, 0.4);
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
 /* Glassmorphism card effects */
 .glass-card {
   background: rgba(255, 255, 255, 0.95);
@@ -50,7 +107,7 @@ body {
 
 /* Animation utilities */
 .animate-fade-in {
-  animation: fadeIn 0.25s ease-in-out forwards;
+  animation: fadeIn 0.2s ease-in-out forwards;
 }
 
 @keyframes fadeIn {

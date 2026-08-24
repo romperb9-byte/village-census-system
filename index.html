@@ -2,7 +2,13 @@
 <html lang="km">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ជំរឿនភូមិ">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3209/3209074.png">
   <title>ប្រព័ន្ធស្ថិតិ និងគ្រប់គ្រងជំរឿនប្រជាជនភូមិ | Village Census System</title>
   
   <!-- Tailwind CSS CDN -->
@@ -670,9 +676,45 @@
   </div>
 
   <!-- ============================================== -->
+  <!-- MODAL: MAP PICKER MODAL (រើសទីតាំងកូអរដោនេលើផែនទី) -->
+  <!-- ============================================== -->
+  <div id="map-picker-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[1060] hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-3xl w-full flex flex-col shadow-2xl border border-slate-200 animate-fade-in overflow-hidden">
+      <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div class="font-bold text-slate-800 flex items-center gap-2">
+          <i data-lucide="map-pin" class="w-5 h-5 text-indigo-600"></i>
+          <span>ចុចលើផែនទីដើម្បីកំណត់ទីតាំងខ្នងផ្ទះ</span>
+        </div>
+        <button onclick="closeMapPickerModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <div class="text-xs text-slate-500 bg-indigo-50 p-2.5 rounded-xl border border-indigo-100 flex items-center justify-between">
+          <span>💡 <strong>ការណែនាំ៖</strong> ចុចលើចំណុចណាមួយលើផែនទី ឬអូស Marker ដើម្បីកំណត់ទីតាំងផ្ទះ។</span>
+          <span id="map-picker-coords-preview" class="font-mono font-bold text-indigo-900">11.4528, 104.9184</span>
+        </div>
+        
+        <div id="picker-leaflet-map" class="w-full h-96 rounded-xl border border-slate-200"></div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeMapPickerModal()" class="px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-semibold rounded-lg transition">
+            បោះបង់
+          </button>
+          <button type="button" onclick="confirmMapPickerLocation()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>យល់ព្រមយកទីតាំងនេះ</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
   <!-- MODAL: ADD / EDIT HOUSEHOLD -->
   <!-- ============================================== -->
-  <div id="household-form-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4 overflow-y-auto">
+  <div id="household-form-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[1050] hidden items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 animate-fade-in">
       
       <!-- Modal Header -->
@@ -739,14 +781,20 @@
 
               <!-- GPS Coordinates -->
               <div class="md:col-span-3 bg-indigo-50/70 p-3 rounded-xl border border-indigo-100">
-                <div class="flex items-center justify-between mb-2">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <span class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
                     <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500"></i> កូអរដោនេទីតាំងផ្ទះ (GPS Coordinates)
                   </span>
-                  <button type="button" onclick="getCurrentGPSLocation()" class="px-2.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition shadow-xs">
-                    <i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-600"></i>
-                    <span>📍 ចាប់យកទីតាំងបច្ចុប្បន្ន (Auto GPS)</span>
-                  </button>
+                  <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="getCurrentGPSLocation()" id="btn-auto-gps" class="px-2.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition shadow-xs">
+                      <i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      <span>📍 ចាប់យកទីតាំង GPS (Auto)</span>
+                    </button>
+                    <button type="button" onclick="openMapPickerModal()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition shadow-xs">
+                      <i data-lucide="map" class="w-3.5 h-3.5"></i>
+                      <span>🗺️ រើសលើផែនទី (Pick on Map)</span>
+                    </button>
+                  </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -757,6 +805,10 @@
                     <label class="block text-[11px] text-slate-500 mb-0.5">Longitude (រយៈបណ្តោយ)</label>
                     <input type="text" id="form-hh-lng" placeholder="104.9181" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                   </div>
+                </div>
+                <div id="gps-accuracy-indicator" class="hidden mt-2 text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                  <i data-lucide="check" class="w-3 h-3"></i>
+                  <span id="gps-accuracy-text">បានចាប់យកទីតាំងដោយជោគជ័យ</span>
                 </div>
               </div>
             </div>
@@ -819,7 +871,7 @@
   <!-- ============================================== -->
   <!-- MODAL: VIEW HOUSEHOLD DETAIL (FAMILY BOOK) -->
   <!-- ============================================== -->
-  <div id="household-detail-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4 overflow-y-auto">
+  <div id="household-detail-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[1050] hidden items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 animate-fade-in">
       <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
         <div class="font-bold text-slate-800 flex items-center gap-2">
@@ -839,7 +891,7 @@
   <!-- ============================================== -->
   <!-- MODAL: VIEW HOUSE GPS LOCATION MAP -->
   <!-- ============================================== -->
-  <div id="house-map-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4 overflow-y-auto">
+  <div id="house-map-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[1050] hidden items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white rounded-2xl max-w-2xl w-full flex flex-col shadow-2xl border border-slate-200 animate-fade-in overflow-hidden">
       <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
         <div class="font-bold text-slate-800 flex items-center gap-2">

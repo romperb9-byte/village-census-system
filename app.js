@@ -16,6 +16,10 @@ let enumeratorName = localStorage.getItem('village_census_enumerator') || '';
 let villageMapInstance = null;
 let singleHouseMapInstance = null;
 let singleHouseMarker = null;
+let pickerMapInstance = null;
+let pickerMarker = null;
+let currentPickerLat = null;
+let currentPickerLng = null;
 
 // Education Options (ថ្នាក់ទី ១ ដល់ ១២, សាកលវិទ្យាល័យ, ជំនាញវិជ្ជាជីវៈ)
 const EDUCATION_OPTIONS = [
@@ -1471,32 +1475,165 @@ window.switchTab = function(tabName) {
 };
 
 // ==========================================
-// GPS & LEAFLET MAP LOGIC
+// GPS & LEAFLET MAP LOGIC (OFFICIAL & ROBUST)
 // ==========================================
 
-// Get current device GPS location
+// Get current device GPS location with high-accuracy + fallback
 window.getCurrentGPSLocation = function() {
   if (!navigator.geolocation) {
-    alert('ឧបករណ៍ ឬ Browser របស់អ្នកមិនគាំទ្រ Geolocation API ឡើយ!');
+    alert('ឧបករណ៍ ឬ Browser របស់អ្នកមិនគាំទ្រប្រព័ន្ធ Geolocation GPS ឡើយ!');
     return;
   }
 
-  showToast('កំពុងចាប់យកទីតាំង GPS...', 'info');
+  const btn = document.getElementById('btn-auto-gps');
+  const indicator = document.getElementById('gps-accuracy-indicator');
+  const indicatorText = document.getElementById('gps-accuracy-text');
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const lat = position.coords.latitude.toFixed(6);
-      const lng = position.coords.longitude.toFixed(6);
-      document.getElementById('form-hh-lat').value = lat;
-      document.getElementById('form-hh-lng').value = lng;
-      showToast(`ទទួលបានទីតាំង GPS: ${lat}, ${lng}`, 'success');
-    },
-    (error) => {
-      alert('មិនអាចចាប់យកទីតាំង GPS បានទេ៖ ' + error.message + ' (សូមប្រាកដថាអ្នកបានអនុញ្ញាត Location Permission)');
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> កំពុងចាប់យក GPS...`;
+  }
+
+  showToast('🔍 កំពុងស្វែងរកផ្កាយរណប GPS...', 'info');
+
+  const onLocationSuccess = (position) => {
+    const lat = position.coords.latitude.toFixed(6);
+    const lng = position.coords.longitude.toFixed(6);
+    const accuracy = Math.round(position.coords.accuracy || 0);
+
+    document.getElementById('form-hh-lat').value = lat;
+    document.getElementById('form-hh-lng').value = lng;
+
+    if (indicator && indicatorText) {
+      indicator.classList.remove('hidden');
+      indicatorText.textContent = `ទទួលបានទីតាំង GPS: ${lat}, ${lng} (កម្រិតលម្អិត ±${accuracy} ម៉ែត្រ)`;
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-600"></i> <span>📍 ចាប់យកទីតាំង GPS (Auto)</span>`;
+      lucide.createIcons();
+    }
+
+    showToast(`✓ ទទួលបានកូអរដោនេ GPS (ភាពសុក្រឹត ±${accuracy}m)`, 'success');
+  };
+
+  const onLocationError = (error) => {
+    // If high accuracy timed out, try standard accuracy
+    if (error.code === 3 || error.code === 2) {
+      showToast('កំពុងព្យាយាមចាប់យកទីតាំងតាមបណ្តាញទូរស័ព្ទ (Network GPS)...', 'info');
+      navigator.geolocation.getCurrentPosition(
+        onLocationSuccess,
+        (err2) => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-600"></i> <span>📍 ចាប់យកទីតាំង GPS (Auto)</span>`;
+            lucide.createIcons();
+          }
+          let msg = 'មិនអាចចាប់យកទីតាំង GPS បានទេ។';
+          if (err2.code === 1) msg = 'សូមអនុញ្ញាត (Allow) Location Permission លើទូរស័ព្ទ ឬ Browser។';
+          alert(msg + ' លោកអ្នកអាចចុច "🗺️ រើសលើផែនទី" ដើម្បីកំណត់ទីតាំងផ្ទាល់ដៃបាន!');
+        },
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+      );
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-600"></i> <span>📍 ចាប់យកទីតាំង GPS (Auto)</span>`;
+      lucide.createIcons();
+    }
+
+    if (error.code === 1) {
+      alert('សូមអនុញ្ញាត (Allow) Location Permission លើ Browser ឬ Settings ទូរស័ព្ទរបស់អ្នក ដើម្បីប្រើប្រាស់ GPS។');
+    } else {
+      alert('មិនអាចចាប់យកទីតាំង GPS បានទេ៖ ' + error.message + '។ សូមចុច "🗺️ រើសលើផែនទី" ដើម្បីរើសទីតាំងដោយផ្ទាល់។');
+    }
+  };
+
+  // Attempt 1: High Accuracy GPS (10 seconds timeout)
+  navigator.geolocation.getCurrentPosition(onLocationSuccess, onLocationError, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0
+  });
 };
+
+// ==========================================
+// MAP PICKER MODAL (រើសទីតាំងដោយផ្ទាល់លើផែនទី)
+// ==========================================
+
+window.openMapPickerModal = function() {
+  const existingLat = parseFloat(document.getElementById('form-hh-lat')?.value) || 11.4528;
+  const existingLng = parseFloat(document.getElementById('form-hh-lng')?.value) || 104.9184;
+
+  currentPickerLat = existingLat;
+  currentPickerLng = existingLng;
+
+  document.getElementById('map-picker-coords-preview').textContent = `${currentPickerLat.toFixed(6)}, ${currentPickerLng.toFixed(6)}`;
+  document.getElementById('map-picker-modal').classList.remove('hidden');
+  document.getElementById('map-picker-modal').classList.add('flex');
+  lucide.createIcons();
+
+  setTimeout(() => {
+    if (pickerMapInstance) {
+      pickerMapInstance.remove();
+      pickerMapInstance = null;
+    }
+
+    pickerMapInstance = L.map('picker-leaflet-map').setView([currentPickerLat, currentPickerLng], 17);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(pickerMapInstance);
+
+    pickerMarker = L.marker([currentPickerLat, currentPickerLng], { draggable: true }).addTo(pickerMapInstance);
+    pickerMarker.bindPopup('<strong>ទីតាំងខ្នងផ្ទះ</strong><br>អូស Marker ដើម្បីកែប្រែទីតាំង').openPopup();
+
+    pickerMarker.on('dragend', function(e) {
+      const pos = e.target.getLatLng();
+      currentPickerLat = pos.lat;
+      currentPickerLng = pos.lng;
+      document.getElementById('map-picker-coords-preview').textContent = `${currentPickerLat.toFixed(6)}, ${currentPickerLng.toFixed(6)}`;
+    });
+
+    pickerMapInstance.on('click', function(e) {
+      currentPickerLat = e.latlng.lat;
+      currentPickerLng = e.latlng.lng;
+      pickerMarker.setLatLng(e.latlng);
+      document.getElementById('map-picker-coords-preview').textContent = `${currentPickerLat.toFixed(6)}, ${currentPickerLng.toFixed(6)}`;
+    });
+
+    pickerMapInstance.invalidateSize();
+  }, 200);
+};
+
+window.confirmMapPickerLocation = function() {
+  if (currentPickerLat && currentPickerLng) {
+    document.getElementById('form-hh-lat').value = currentPickerLat.toFixed(6);
+    document.getElementById('form-hh-lng').value = currentPickerLng.toFixed(6);
+
+    const indicator = document.getElementById('gps-accuracy-indicator');
+    const indicatorText = document.getElementById('gps-accuracy-text');
+    if (indicator && indicatorText) {
+      indicator.classList.remove('hidden');
+      indicatorText.textContent = `បានកំណត់ទីតាំងលើផែនទី៖ ${currentPickerLat.toFixed(6)}, ${currentPickerLng.toFixed(6)}`;
+    }
+    showToast('បានកំណត់កូអរដោនេទីតាំងលើផែនទី!', 'success');
+  }
+  closeMapPickerModal();
+};
+
+window.closeMapPickerModal = function() {
+  document.getElementById('map-picker-modal').classList.add('hidden');
+  document.getElementById('map-picker-modal').classList.remove('flex');
+};
+
+// ==========================================
+// VILLAGE FULL MAP & SINGLE HOUSE MODAL
+// ==========================================
 
 // Initialize Village Full Map
 window.initVillageMap = function() {
@@ -1538,7 +1675,6 @@ window.initVillageMap = function() {
     const head = hh.members?.find(m => m.relation === 'head') || hh.members?.[0] || {};
     const pov = getPovertyLabel(hh.povertyStatus);
 
-    // Marker color based on poverty
     let markerColor = '#10b981'; // green for normal
     if (hh.povertyStatus === 'idpoor_1' || hh.povertyStatus === 'idpoor_2') {
       markerColor = '#ef4444'; // red for poor
@@ -1590,8 +1726,14 @@ window.initVillageMap = function() {
   markersGroup.addTo(villageMapInstance);
 
   if (validHouseholds.length > 0) {
-    villageMapInstance.fitBounds(markersGroup.getBounds().pad(0.2));
+    try {
+      villageMapInstance.fitBounds(markersGroup.getBounds().pad(0.2));
+    } catch(e) {}
   }
+
+  setTimeout(() => {
+    if (villageMapInstance) villageMapInstance.invalidateSize();
+  }, 300);
 };
 
 window.refreshVillageMap = function() {
@@ -1641,7 +1783,9 @@ window.openHouseMapModal = function(householdId) {
         <span>មេគ្រួសារ៖ ${head.fullNameKh || ''}</span>
       </div>
     `).openPopup();
-  }, 200);
+
+    singleHouseMapInstance.invalidateSize();
+  }, 250);
 };
 
 window.closeHouseMapModal = function() {
