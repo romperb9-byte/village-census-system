@@ -10,12 +10,15 @@ function jsonResponse(payload) {
 
 function isAuthorized(token) {
   const expected = PropertiesService.getScriptProperties().getProperty('CLOUD_ACCESS_TOKEN');
-  return Boolean(expected && token && String(token) === String(expected));
+  // ប្រសិនបើពុំបានកំណត់ Token ក្នុង Script Properties ទេ គឺអនុញ្ញាតឱ្យប្រើប្រាស់ធម្មតា (Default Open Access)
+  if (!expected || expected === '') return true;
+  return Boolean(token && String(token) === String(expected));
 }
 
 function doGet(e) {
   try {
-    if (!isAuthorized(e && e.parameter && e.parameter.token)) {
+    const token = (e && e.parameter && e.parameter.token) || '';
+    if (!isAuthorized(token)) {
       return jsonResponse({ status: 'error', message: 'Unauthorized: Cloud Access Token មិនត្រឹមត្រូវ។' });
     }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
