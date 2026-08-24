@@ -30,10 +30,10 @@ function doGet(e) {
     
     // អានព័ត៌មានភូមិ
     const villageInfo = {
-      villageName: infoSheet.getRange("B1").getValue() || "ភូមិត្រពាំងថ្ម",
-      communeName: infoSheet.getRange("B2").getValue() || "ឃុំព្រៃវែង",
-      districtName: infoSheet.getRange("B3").getValue() || "ស្រុកកណ្តាលស្ទឹង",
-      provinceName: infoSheet.getRange("B4").getValue() || "ខេត្តកណ្តាល",
+      villageName: infoSheet.getRange("B1").getValue() || "ភូមិថ្លុកដង្កោ",
+      communeName: infoSheet.getRange("B2").getValue() || "ឃុំផ្ទះរុង",
+      districtName: infoSheet.getRange("B3").getValue() || "ស្រុកតាលោសែនជ័យ",
+      provinceName: infoSheet.getRange("B4").getValue() || "ខេត្តពោធិ៍សាត់",
       villageChief: infoSheet.getRange("B5").getValue() || "លោក អ៊ុ ឈុនហេង",
       chiefPhone: infoSheet.getRange("B6").getValue() || "012 345 678",
       censusYear: infoSheet.getRange("B7").getValue() || "២០២៦",

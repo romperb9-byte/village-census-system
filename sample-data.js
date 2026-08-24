@@ -4,16 +4,16 @@
  */
 
 const DEFAULT_VILLAGE_INFO = {
-  villageName: "ភូមិត្រពាំងថ្ម",
-  communeName: "ឃុំព្រៃវែង",
-  districtName: "ស្រុកកណ្តាលស្ទឹង",
-  provinceName: "ខេត្តកណ្តាល",
+  villageName: "ភូមិថ្លុកដង្កោ",
+  communeName: "ឃុំផ្ទះរុង",
+  districtName: "ស្រុកតាលោសែនជ័យ",
+  provinceName: "ខេត្តពោធិ៍សាត់",
   villageChief: "លោក អ៊ុ ឈុនហេង",
   chiefPhone: "012 345 678",
   censusYear: "២០២៦",
   censusDate: "២០២៦-០៨-២០",
-  centerLat: 11.4528,
-  centerLng: 104.9184,
+  centerLat: 12.3850,
+  centerLng: 103.7920,
   googleSheetUrl: "https://script.google.com/macros/s/AKfycbyieVQulvaB0quLtUgtbJLDcRzUCIgP9rGclTszv9xz3q0anLNthLqibWJs7PnIKje2/exec"
 };
 
@@ -23,8 +23,8 @@ const SAMPLE_HOUSEHOLDS = [
     houseNumber: "១២",
     groupNumber: "១",
     streetNumber: "ផ្លូវបេតុងលេខ ០១",
-    latitude: "11.4532",
-    longitude: "104.9181",
+    latitude: "12.3855",
+    longitude: "103.7915",
     povertyStatus: "none", // none, idpoor_1, idpoor_2, vulnerable
     housingType: "ផ្ទះឈើលើថ្មក្រោម",
     electricity: true,

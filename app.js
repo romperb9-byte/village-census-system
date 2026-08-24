@@ -825,7 +825,7 @@ function renderOfficialReport() {
     <!-- Signatures -->
     <div class="flex justify-between items-end mt-12 pt-6 text-sm">
       <div class="text-center w-48">
-        <p class="mb-16">បានឃើញ និងបញ្ជាក់ត្រឹមត្រូវ<br><strong>មេឃុំព្រៃវែង</strong></p>
+        <p class="mb-16">បានឃើញ និងបញ្ជាក់ត្រឹមត្រូវ<br><strong>មេ${villageInfo.communeName}</strong></p>
         <p class="border-t border-dotted border-slate-400 pt-1 text-slate-400">(ហត្ថលេខា និងត្រា)</p>
       </div>
 
