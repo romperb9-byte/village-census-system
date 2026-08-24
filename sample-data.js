@@ -13,7 +13,8 @@ const DEFAULT_VILLAGE_INFO = {
   censusYear: "២០២៦",
   censusDate: "២០២៦-០៨-២០",
   centerLat: 11.4528,
-  centerLng: 104.9184
+  centerLng: 104.9184,
+  googleSheetUrl: "https://script.google.com/macros/s/AKfycbyieVQulvaB0quLtUgtbJLDcRzUCIgP9rGclTszv9xz3q0anLNthLqibWJs7PnIKje2/exec"
 };
 
 const SAMPLE_HOUSEHOLDS = [

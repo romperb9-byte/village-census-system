@@ -8,7 +8,8 @@ let households = [];
 let charts = {};
 let currentTab = 'dashboard';
 let currentEditingHouseholdId = null;
-let googleSheetsUrl = localStorage.getItem('village_census_gsheet_url') || '';
+const DEFAULT_GSHEET_URL = 'https://script.google.com/macros/s/AKfycbyieVQulvaB0quLtUgtbJLDcRzUCIgP9rGclTszv9xz3q0anLNthLqibWJs7PnIKje2/exec';
+let googleSheetsUrl = localStorage.getItem('village_census_gsheet_url') || DEFAULT_GSHEET_URL;
 let enumeratorName = localStorage.getItem('village_census_enumerator') || '';
 
 // Leaflet Map instances
