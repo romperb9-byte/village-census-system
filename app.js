@@ -116,6 +116,17 @@ function parseDateFlexible(dateStr) {
     return new Date(year, month, day);
   }
 
+  // Format: 8 digits continuous (DDMMYYYY e.g. 18011999)
+  const ddmmyyyyMatch = normalizedStr.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const day = parseInt(ddmmyyyyMatch[1], 10);
+    const month = parseInt(ddmmyyyyMatch[2], 10) - 1;
+    const year = parseInt(ddmmyyyyMatch[3], 10);
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && year > 1900 && year < 2100) {
+      return new Date(year, month, day);
+    }
+  }
+
   // Format: YYYY-MM-DD or YYYY/MM/DD
   const ymdMatch = normalizedStr.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
   if (ymdMatch) {
@@ -1149,14 +1160,14 @@ window.addMemberRow = function(memberData = {}) {
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs text-slate-600 font-medium">ថ្ងៃខែឆ្នាំកំណើត *</label>
           </div>
-          <input type="text" inputmode="numeric" class="member-dob w-full border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm bg-white" placeholder="18/01/1999 ឬ 1999" required value="${formatDOBForInput(memberData.dob)}" oninput="handleDOBInputChange(this)">
+          <input type="text" class="member-dob w-full border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm bg-white" placeholder="18/01/1999 ឬ 1999" required value="${formatDOBForInput(memberData.dob)}" oninput="handleDOBInputChange(this)" onblur="formatDOBOnBlur(this)">
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs text-slate-600 font-medium">អាយុ</label>
           </div>
           <div class="relative">
-            <input type="number" inputmode="numeric" min="0" max="130" class="member-age w-full border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-indigo-700 text-sm bg-indigo-50/50 text-center" placeholder="ឆ្នាំ" value="${memberData.dob ? calculateAge(memberData.dob) : ''}" oninput="handleAgeInputChange(this)">
+            <input type="number" min="0" max="130" class="member-age w-full border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-indigo-700 text-sm bg-indigo-50/50 text-center" placeholder="ឆ្នាំ" value="${memberData.dob ? calculateAge(memberData.dob) : ''}" oninput="handleAgeInputChange(this)">
           </div>
         </div>
       </div>
@@ -1207,31 +1218,40 @@ window.addMemberRow = function(memberData = {}) {
   lucide.createIcons();
 };
 
-// Instant live synchronization between DOB input and Age input
+// Smooth live synchronization: NEVER overwrite input value during typing
 window.handleDOBInputChange = function(input) {
-  let val = input.value;
-  // Convert any Khmer digits to Arabic numbers
-  val = val.replace(/[០-៩]/g, d => khmerDigits.indexOf(d).toString());
-
-  // Auto insert slash as user types (e.g. 18011999 -> 18/01/1999)
-  const cleanNums = val.replace(/\D/g, '');
-  if (cleanNums.length === 8 && !val.includes('/')) {
-    val = `${cleanNums.slice(0, 2)}/${cleanNums.slice(2, 4)}/${cleanNums.slice(4, 8)}`;
-    input.value = val;
-  }
-
+  const val = input.value.trim();
   const row = input.closest('.grid')?.parentElement;
   if (!row) return;
   const ageInput = row.querySelector('.member-age');
   if (!ageInput) return;
 
-  if (val.trim()) {
+  if (val) {
     const age = calculateAge(val);
     if (age >= 0 && age < 130) {
       ageInput.value = age;
     }
   } else {
     ageInput.value = '';
+  }
+};
+
+// Format on blur (when user finishes typing or taps outside)
+window.formatDOBOnBlur = function(input) {
+  let val = input.value.trim();
+  if (!val) return;
+  // Convert any Khmer digits
+  val = val.replace(/[០-៩]/g, d => khmerDigits.indexOf(d).toString());
+
+  // If 8 digits continuous e.g. 18011999 -> format to 18/01/1999
+  const cleanNums = val.replace(/\D/g, '');
+  if (cleanNums.length === 8 && !val.includes('/')) {
+    input.value = `${cleanNums.slice(0, 2)}/${cleanNums.slice(2, 4)}/${cleanNums.slice(4, 8)}`;
+  } else {
+    const parsed = parseDateFlexible(val);
+    if (parsed) {
+      input.value = formatDOBForInput(val);
+    }
   }
 };
 
@@ -1245,7 +1265,6 @@ window.handleAgeInputChange = function(input) {
   if (!isNaN(age) && age >= 0 && age <= 130) {
     const currentYear = new Date().getFullYear();
     const birthYear = currentYear - age;
-    // Fill year or preserve existing day/month if present
     const curVal = dobInput.value.trim();
     const dmyMatch = curVal.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
     if (dmyMatch) {

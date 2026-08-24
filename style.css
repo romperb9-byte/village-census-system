@@ -9,6 +9,14 @@
 * {
   box-sizing: border-box;
   font-family: var(--font-khmer);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile input font-size fix (prevents iOS auto-zoom & input lock) */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 body {
