@@ -9,6 +9,7 @@ let charts = {};
 let currentTab = 'dashboard';
 let currentEditingHouseholdId = null;
 let googleSheetsUrl = localStorage.getItem('village_census_gsheet_url') || '';
+let enumeratorName = localStorage.getItem('village_census_enumerator') || '';
 
 // Leaflet Map instances
 let villageMapInstance = null;
@@ -104,6 +105,12 @@ document.addEventListener('DOMContentLoaded', () => {
   loadData();
   setupEventListeners();
   renderAll();
+  updateCloudSyncBadge();
+
+  // Auto fetch from Google Sheets if URL configured
+  if (googleSheetsUrl) {
+    fetchFromGoogleSheets(true); // silent background fetch
+  }
 });
 
 // Load Data from LocalStorage or Sample Data
@@ -123,6 +130,20 @@ function loadData() {
   } else {
     households = JSON.parse(JSON.stringify(SAMPLE_HOUSEHOLDS));
     saveHouseholds();
+  }
+}
+
+function updateCloudSyncBadge() {
+  const badge = document.getElementById('cloud-sync-status-badge');
+  const text = document.getElementById('cloud-sync-status-text');
+  if (!badge || !text) return;
+
+  if (googleSheetsUrl) {
+    badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300';
+    text.textContent = '☁️ Cloud Sync (ទិន្នន័យរួម)';
+  } else {
+    badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300';
+    text.textContent = '💾 ប្រើទិន្នន័យលើម៉ាស៊ីន (Local)';
   }
 }
 
@@ -1130,6 +1151,33 @@ function handleHouseholdFormSubmit(e) {
   closeHouseholdFormModal();
   renderAll();
   showToast('រក្សាទុកទិន្នន័យបានជោគជ័យ!', 'success');
+
+  // Multi-Phone Cloud Auto-Sync
+  if (googleSheetsUrl) {
+    saveHouseholdToCloud(householdObj);
+  }
+}
+
+// Push single household to Google Sheets (Multi-Device Live Sync)
+async function saveHouseholdToCloud(householdObj) {
+  try {
+    const payload = {
+      action: "SAVE_HOUSEHOLD",
+      enumerator: enumeratorName || "ទូរស័ព្ទមន្ត្រី",
+      household: householdObj
+    };
+
+    await fetch(googleSheetsUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    showToast('☁️ បានរក្សាទុកក្នុង Cloud Google Sheet រួចរាល់!', 'success');
+  } catch (err) {
+    console.warn('Could not sync to cloud immediately:', err);
+  }
 }
 
 // Delete Household
@@ -1139,6 +1187,27 @@ window.deleteHousehold = function(id) {
     saveHouseholds();
     renderAll();
     showToast('បានលុបទិន្នន័យគ្រួសាររួចរាល់', 'info');
+
+    if (googleSheetsUrl) {
+      deleteHouseholdFromCloud(id);
+    }
+  }
+};
+
+async function deleteHouseholdFromCloud(id) {
+  try {
+    const payload = {
+      action: "DELETE_HOUSEHOLD",
+      householdId: id
+    };
+    await fetch(googleSheetsUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.warn('Could not delete from cloud:', err);
   }
 };
 
@@ -1281,19 +1350,24 @@ window.syncToGoogleSheets = async function() {
   }
 };
 
-window.fetchFromGoogleSheets = async function() {
+window.fetchFromGoogleSheets = async function(silent = false) {
   const url = document.getElementById('setting-gsheet-url')?.value.trim() || googleSheetsUrl;
   if (!url) {
-    alert('សូមបញ្ចូល Google Apps Script Web App URL នៅក្នុងផ្ទាំងការកំណត់ជាមុនសិន!');
-    switchTab('settings');
-    document.getElementById('setting-gsheet-url')?.focus();
+    if (!silent) {
+      alert('សូមបញ្ចូល Google Apps Script Web App URL នៅក្នុងផ្ទាំងការកំណត់ជាមុនសិន!');
+      switchTab('settings');
+      document.getElementById('setting-gsheet-url')?.focus();
+    }
     return;
   }
 
   googleSheetsUrl = url;
   localStorage.setItem('village_census_gsheet_url', url);
+  updateCloudSyncBadge();
 
-  showToast('កំពុងទាញយកទិន្នន័យពី Google Sheets...', 'info');
+  if (!silent) {
+    showToast('កំពុងទាញយកទិន្នន័យពី Google Sheets...', 'info');
+  }
 
   try {
     const res = await fetch(url);
@@ -1305,12 +1379,13 @@ window.fetchFromGoogleSheets = async function() {
       saveVillageInfo();
       saveHouseholds();
       renderAll();
-      showToast('បានទាញយកទិន្នន័យពី Google Sheets ជោគជ័យ!', 'success');
+      updateCloudSyncBadge();
+      showToast(`☁️ បានទាញយកទិន្នន័យចុងក្រោយ (${toKhmerNum(households.length)} គ្រួសារ) ពី Cloud!`, 'success');
     } else {
-      alert('មិនអាចអានទិន្នន័យពី Google Sheets បានទេ៖ ' + (data.message || 'Unknown error'));
+      if (!silent) alert('មិនអាចអានទិន្នន័យពី Google Sheets បានទេ៖ ' + (data.message || 'Unknown error'));
     }
   } catch (err) {
-    alert('កំហុសក្នុងការទាញយកទិន្នន័យពី Google Sheets: ' + err.message);
+    if (!silent) alert('កំហុសក្នុងការទាញយកទិន្នន័យពី Google Sheets: ' + err.message);
   }
 };
 
@@ -1331,6 +1406,11 @@ function populateSettingsForm() {
   if (gsheetInput) {
     gsheetInput.value = googleSheetsUrl || '';
   }
+
+  const enumInput = document.getElementById('setting-enumerator-name');
+  if (enumInput) {
+    enumInput.value = enumeratorName || '';
+  }
 }
 
 function handleSettingsFormSubmit(e) {
@@ -1348,8 +1428,13 @@ function handleSettingsFormSubmit(e) {
   googleSheetsUrl = gsheetVal;
   localStorage.setItem('village_census_gsheet_url', gsheetVal);
 
+  const enumVal = document.getElementById('setting-enumerator-name')?.value.trim() || '';
+  enumeratorName = enumVal;
+  localStorage.setItem('village_census_enumerator', enumVal);
+
   saveVillageInfo();
   renderAll();
+  updateCloudSyncBadge();
   showToast('បានរក្សាទុកការកំណត់រដ្ឋបាលភូមិដោយជោគជ័យ!', 'success');
 }
 

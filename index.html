@@ -55,19 +55,29 @@
 
       <!-- Right Action Buttons -->
       <div class="flex items-center gap-2">
-        <button onclick="syncToGoogleSheets()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition shadow-sm" title="Sync ទិន្នន័យទៅ Google Sheets">
+        <!-- Cloud Status Badge -->
+        <div id="cloud-sync-status-badge" class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+          <span id="cloud-sync-status-text">💾 Local Mode</span>
+        </div>
+
+        <button onclick="fetchFromGoogleSheets(false)" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition shadow-xs" title="ទាញយកទិន្នន័យចុងក្រោយពីទូរស័ព្ទផ្សេងៗ">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span class="hidden md:inline">ទាញយកទិន្នន័យ</span>
+        </button>
+
+        <button onclick="syncToGoogleSheets()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition shadow-xs" title="Sync ទិន្នន័យទាំងអស់ទៅ Google Sheets">
           <i data-lucide="sheet" class="w-4 h-4 text-emerald-600"></i>
           <span>Sync Sheets</span>
         </button>
 
-        <button onclick="exportCensusCSV()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition shadow-sm" title="ទាញយកជា Excel/CSV">
+        <button onclick="exportCensusCSV()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition shadow-xs" title="ទាញយកជា Excel/CSV">
           <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
-          <span>Excel / CSV</span>
+          <span>Excel</span>
         </button>
 
-        <button onclick="openAddHouseholdModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+        <button onclick="openAddHouseholdModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition">
           <i data-lucide="user-plus" class="w-4 h-4"></i>
-          <span>+ បញ្ចូលគ្រួសារថ្មី</span>
+          <span>+ គ្រួសារថ្មី</span>
         </button>
       </div>
     </div>
@@ -559,10 +569,19 @@
                 <input type="date" id="setting-census-date" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
               </div>
 
+              <div>
+                <label class="block text-xs font-semibold text-indigo-900 mb-1 flex items-center gap-1">
+                  <i data-lucide="user-check" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  <span>ឈ្មោះមន្ត្រីស្រង់ទិន្នន័យលើទូរស័ព្ទនេះ (Enumerator)</span>
+                </label>
+                <input type="text" id="setting-enumerator-name" placeholder="ឧ. មន្ត្រី ក ឬ ក្រុមទី១" class="w-full border border-indigo-200 bg-indigo-50/50 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <p class="text-[11px] text-slate-400 mt-0.5">សម្គាល់ថាទូរស័ព្ទមួយណាជាអ្នកបញ្ចូលទិន្នន័យគ្រួសារនេះ។</p>
+              </div>
+
               <div class="md:col-span-2">
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Google Apps Script Web App URL (សម្រាប់ភ្ជាប់ Google Sheets)</label>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Google Apps Script Web App URL (សម្រាប់ភ្ជាប់ Cloud ទិន្នន័យរួម)</label>
                 <input type="url" id="setting-gsheet-url" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                <p class="text-[11px] text-slate-400 mt-1">ចម្លង Web App URL ពី Google Apps Script មកដាក់ទីនេះដើម្បី Sync ទិន្នន័យទៅកាន់ Google Sheets ដោយស្វ័យប្រវត្តិ។</p>
+                <p class="text-[11px] text-slate-400 mt-1">បិទភ្ជាប់ Web App URL នេះលើគ្រប់ទូរស័ព្ទទាំងអស់ ដើម្បីឱ្យគ្រប់ទូរស័ព្ទអាចមើលឃើញ និងបញ្ចូលទិន្នន័យចូលតារាងរួមគ្នាតែមួយ (Shared Central Database)!</p>
               </div>
             </div>
 
