@@ -259,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadData() {
   const savedVillage = localStorage.getItem('village_census_info');
   const savedHouseholds = localStorage.getItem('village_census_households');
+  const isDemoCleared = localStorage.getItem('village_census_demo_cleared') === 'true';
 
   if (savedVillage) {
     villageInfo = JSON.parse(savedVillage);
@@ -272,10 +273,12 @@ function loadData() {
     saveVillageInfo();
   }
 
-  if (savedHouseholds) {
+  // If this browser previously had old demo data cached, clean it once
+  if (savedHouseholds && isDemoCleared) {
     households = JSON.parse(savedHouseholds);
   } else {
-    households = JSON.parse(JSON.stringify(SAMPLE_HOUSEHOLDS));
+    households = [];
+    localStorage.setItem('village_census_demo_cleared', 'true');
     saveHouseholds();
   }
 }
