@@ -230,7 +230,21 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ករណីទី ៣៖ Bulk Sync ទិន្នន័យទាំងអស់ (Full Sync)
+    // ករណីទី ៣៖ Clear All Data (Admin Only)
+    if (action === "CLEAR_ALL") {
+      if (hhSheet.getLastRow() > 1) {
+        hhSheet.getRange(2, 1, hhSheet.getLastRow() - 1, hhSheet.getLastColumn()).clearContent();
+      }
+      if (memSheet.getLastRow() > 1) {
+        memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).clearContent();
+      }
+      return jsonResponse({
+        status: "success",
+        message: "បាន Clear ទិន្នន័យទាំងអស់ក្នុង Google Sheets រួចរាល់!"
+      });
+    }
+
+    // ករណីទី ៤៖ Bulk Sync ទិន្នន័យទាំងអស់ (Full Sync)
     if (data.households && Array.isArray(data.households)) {
       if (data.villageInfo) writeVillageInfo(infoSheet, data.villageInfo);
       if (hhSheet.getLastRow() > 1) {

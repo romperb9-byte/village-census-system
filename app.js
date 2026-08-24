@@ -12,6 +12,11 @@ const DEFAULT_GSHEET_URL = 'https://script.google.com/macros/s/AKfycbyieVQulvaB0
 let googleSheetsUrl = localStorage.getItem('village_census_gsheet_url') || DEFAULT_GSHEET_URL;
 let enumeratorName = localStorage.getItem('village_census_enumerator') || '';
 let cloudAccessToken = sessionStorage.getItem('village_census_cloud_token') || '';
+let adminPin = localStorage.getItem('village_census_admin_pin') || '1234';
+
+// History state for Undo & Redo (Up to 30 snapshots)
+let undoStack = [];
+let redoStack = [];
 
 // Leaflet Map instances
 let villageMapInstance = null;
@@ -296,6 +301,181 @@ function saveVillageInfo() {
 function saveHouseholds() {
   localStorage.setItem('village_census_households', JSON.stringify(households));
 }
+
+// ==========================================
+// UNDO / REDO & ADMIN SECURITY ENGINE
+// ==========================================
+
+function pushStateToHistory(actionName = 'ការកែប្រែ') {
+  try {
+    const snapshot = {
+      timestamp: Date.now(),
+      actionName: actionName,
+      households: JSON.parse(JSON.stringify(households)),
+      villageInfo: JSON.parse(JSON.stringify(villageInfo))
+    };
+    undoStack.push(snapshot);
+    if (undoStack.length > 30) undoStack.shift();
+    redoStack = []; // Clear redo stack on new action
+    updateUndoRedoButtons();
+  } catch (e) {
+    console.error('History push error:', e);
+  }
+}
+
+window.undoAction = function() {
+  if (undoStack.length === 0) return;
+  const previousState = undoStack.pop();
+  
+  // Push current state to redoStack
+  redoStack.push({
+    timestamp: Date.now(),
+    actionName: previousState.actionName,
+    households: JSON.parse(JSON.stringify(households)),
+    villageInfo: JSON.parse(JSON.stringify(villageInfo))
+  });
+  if (redoStack.length > 30) redoStack.shift();
+
+  // Restore previous state
+  households = previousState.households || [];
+  villageInfo = previousState.villageInfo || { ...DEFAULT_VILLAGE_INFO };
+
+  saveVillageInfo();
+  saveHouseholds();
+  renderAll();
+  updateUndoRedoButtons();
+  
+  if (googleSheetsUrl) {
+    syncToGoogleSheets(true); // silent background sync
+  }
+
+  showToast(`↩️ មិនធ្វើវិញ (Undo): ${previousState.actionName}`, 'info');
+};
+
+window.redoAction = function() {
+  if (redoStack.length === 0) return;
+  const nextState = redoStack.pop();
+
+  // Push current state to undoStack
+  undoStack.push({
+    timestamp: Date.now(),
+    actionName: nextState.actionName,
+    households: JSON.parse(JSON.stringify(households)),
+    villageInfo: JSON.parse(JSON.stringify(villageInfo))
+  });
+  if (undoStack.length > 30) undoStack.shift();
+
+  // Restore next state
+  households = nextState.households || [];
+  villageInfo = nextState.villageInfo || { ...DEFAULT_VILLAGE_INFO };
+
+  saveVillageInfo();
+  saveHouseholds();
+  renderAll();
+  updateUndoRedoButtons();
+
+  if (googleSheetsUrl) {
+    syncToGoogleSheets(true); // silent background sync
+  }
+
+  showToast(`↪️ ធ្វើឡើងវិញ (Redo): ${nextState.actionName}`, 'info');
+};
+
+function updateUndoRedoButtons() {
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  const btnUndoSettings = document.getElementById('btn-undo-settings');
+  const btnRedoSettings = document.getElementById('btn-redo-settings');
+
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+
+  if (btnUndo) {
+    btnUndo.disabled = !canUndo;
+    btnUndo.title = canUndo ? `មិនធ្វើវិញ (Undo): ${undoStack[undoStack.length - 1]?.actionName || ''}` : 'គ្មានប្រវត្តិថយក្រោយ';
+  }
+  if (btnRedo) {
+    btnRedo.disabled = !canRedo;
+    btnRedo.title = canRedo ? `ធ្វើឡើងវិញ (Redo): ${redoStack[redoStack.length - 1]?.actionName || ''}` : 'គ្មានប្រវត្តិទៅមុខ';
+  }
+  if (btnUndoSettings) btnUndoSettings.disabled = !canUndo;
+  if (btnRedoSettings) btnRedoSettings.disabled = !canRedo;
+}
+
+// Admin PIN Management
+window.saveAdminPin = function() {
+  const pinInput = document.getElementById('setting-admin-pin');
+  if (!pinInput) return;
+  const newPin = pinInput.value.trim();
+  if (!newPin || newPin.length < 4) {
+    alert('សូមបញ្ចូលលេខសម្ងាត់ Admin យ៉ាងហោចណាស់ ៤ ខ្ទង់!');
+    return;
+  }
+  adminPin = newPin;
+  localStorage.setItem('village_census_admin_pin', newPin);
+  showToast('✓ បានផ្លាស់ប្តូរលេខសម្ងាត់ Admin ដោយជោគជ័យ!', 'success');
+};
+
+// Admin Clear All Data
+window.openAdminClearModal = function() {
+  document.getElementById('admin-clear-pin-input').value = '';
+  document.getElementById('admin-clear-word-input').value = '';
+  document.getElementById('admin-clear-modal').classList.remove('hidden');
+  document.getElementById('admin-clear-modal').classList.add('flex');
+  lucide.createIcons();
+};
+
+window.closeAdminClearModal = function() {
+  document.getElementById('admin-clear-modal').classList.add('hidden');
+  document.getElementById('admin-clear-modal').classList.remove('flex');
+};
+
+window.confirmAdminClearData = async function(e) {
+  e.preventDefault();
+  const inputPin = document.getElementById('admin-clear-pin-input').value.trim();
+  const inputWord = document.getElementById('admin-clear-word-input').value.trim().toLowerCase();
+
+  const currentAdminPin = localStorage.getItem('village_census_admin_pin') || adminPin || '1234';
+
+  if (inputPin !== currentAdminPin) {
+    alert('❌ លេខសម្ងាត់ Admin (Admin PIN) មិនត្រឹមត្រូវឡើយ! មានតែ Admin ប៉ុណ្ណោះដែលអាច Clear ទិន្នន័យបាន។');
+    document.getElementById('admin-clear-pin-input').focus();
+    return;
+  }
+
+  if (inputWord !== 'លុប' && inputWord !== 'confirm' && inputWord !== 'delete' && inputWord !== 'clear') {
+    alert('❌ សូមវាយពាក្យ "លុប" ឬ "CONFIRM" ដើម្បីបញ្ជាក់ការលុបទិន្នន័យ។');
+    document.getElementById('admin-clear-word-input').focus();
+    return;
+  }
+
+  // Push state to Undo stack before clearing!
+  pushStateToHistory('Clear ទិន្នន័យទាំងអស់ (Admin)');
+
+  // Clear local households
+  const prevCount = households.length;
+  households = [];
+  saveHouseholds();
+  renderAll();
+  updateUndoRedoButtons();
+  closeAdminClearModal();
+
+  showToast(`🗑️ បាន Clear ទិន្នន័យទាំងអស់ (${toKhmerNum(prevCount)} គ្រួសារ) ដោយជោគជ័យ! (អាចចុច Undo ដើម្បីស្តារវិញបាន)`, 'warning');
+
+  // Clear in Cloud Google Sheets as well
+  if (googleSheetsUrl) {
+    try {
+      await cloudRequest({
+        action: 'CLEAR_ALL',
+        villageInfo,
+        enumerator: enumeratorName || 'Admin'
+      });
+      showToast('☁️ បាន Clear ទិន្នន័យក្នុង Google Sheets រួចរាល់!', 'success');
+    } catch(err) {
+      console.warn('Cloud clear error:', err);
+    }
+  }
+};
 
 // Render Master Controller
 function renderAll() {
@@ -1350,6 +1530,9 @@ function handleHouseholdFormSubmit(e) {
     members
   };
 
+  // Push to history for Undo/Redo before mutation
+  pushStateToHistory(currentEditingHouseholdId ? (`កែប្រែគ្រួសារ ` + id) : (`បន្ថែមគ្រួសារ ` + id));
+
   if (currentEditingHouseholdId) {
     const idx = households.findIndex(h => h.id === currentEditingHouseholdId);
     if (idx !== -1) {
@@ -1367,10 +1550,11 @@ function handleHouseholdFormSubmit(e) {
   saveHouseholds();
   closeHouseholdFormModal();
   renderAll();
+  updateUndoRedoButtons();
   showToast('រក្សាទុកទិន្នន័យបានជោគជ័យ!', 'success');
 
   // Multi-Phone Cloud Auto-Sync
-  if (googleSheetsUrl && cloudAccessToken) {
+  if (googleSheetsUrl) {
     saveHouseholdToCloud(householdObj);
   }
 }
@@ -1387,19 +1571,20 @@ async function saveHouseholdToCloud(householdObj) {
     showToast('☁️ បានរក្សាទុកក្នុង Cloud Google Sheet រួចរាល់!', 'success');
   } catch (err) {
     console.warn('Could not sync to cloud immediately:', err);
-    showToast(`រក្សាទុកក្នុងម៉ាស៊ីនរួច ប៉ុន្តែ Cloud មានបញ្ហា៖ ${err.message}`, 'error');
   }
 }
 
 // Delete Household
 window.deleteHousehold = function(id) {
   if (confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យសៀវភៅគ្រួសារលេខ ${id} នេះមែនទេ?`)) {
+    pushStateToHistory(`លុបគ្រួសារ ` + id);
     households = households.filter(h => h.id !== id);
     saveHouseholds();
     renderAll();
-    showToast('បានលុបទិន្នន័យគ្រួសាររួចរាល់', 'info');
+    updateUndoRedoButtons();
+    showToast('បានលុបទិន្នន័យគ្រួសាររួចរាល់ (អាចចុច Undo ដើម្បីស្តារវិញបាន)', 'info');
 
-    if (googleSheetsUrl && cloudAccessToken) {
+    if (googleSheetsUrl) {
       deleteHouseholdFromCloud(id);
     }
   }
@@ -1485,11 +1670,13 @@ window.restoreDataJSON = function(e) {
     try {
       const parsed = validateImportedData(JSON.parse(evt.target.result));
       if (parsed.villageInfo && parsed.households) {
+        pushStateToHistory('ស្តារទិន្នន័យពី JSON Backup');
         villageInfo = parsed.villageInfo;
         households = parsed.households;
         saveVillageInfo();
         saveHouseholds();
         renderAll();
+        updateUndoRedoButtons();
         showToast('បានស្តារទិន្នន័យ (Restore) ជោគជ័យ!', 'success');
       } else {
         alert('ឯកសារ JSON មិនត្រូវតាមទម្រង់ត្រឹមត្រូវឡើយ!');
@@ -1503,32 +1690,36 @@ window.restoreDataJSON = function(e) {
 
 // Reset Demo Data
 window.resetDemoData = function() {
-  if (confirm('តើអ្នកពិតជាចង់កំណត់ទិន្នន័យឡើងវិញទៅជាទិន្នន័យគំរូដើមមែនទេ? ទិន្នន័យថ្មីៗនឹងត្រូវបាត់បង់។')) {
+  if (confirm('តើអ្នកពិតជាចង់កំណត់ទិន្នន័យឡើងវិញទៅជាទិន្នន័យគំរូដើមមែនទេ? (អាចចុច Undo ដើម្បីត្រឡប់ក្រោយវិញបាន)')) {
+    pushStateToHistory('កំណត់ទិន្នន័យគំរូដើម');
     villageInfo = { ...DEFAULT_VILLAGE_INFO };
     households = JSON.parse(JSON.stringify(SAMPLE_HOUSEHOLDS));
     saveVillageInfo();
     saveHouseholds();
     renderAll();
-    showToast('បានកំណត់ទៅទិន្នន័យគំរូដើមរួចរាល់', 'info');
+    updateUndoRedoButtons();
+    showToast('បានកំណត់ទៅទិន្នន័យគំរូដើមរួចរាល់ (អាចចុច Undo ដើម្បីស្តារវិញបាន)', 'info');
   }
 };
 
 // Google Sheets Integration
-window.syncToGoogleSheets = async function() {
+window.syncToGoogleSheets = async function(silent = false) {
   const { url, token } = getCloudCredentials();
-  if (!url || !token) {
-    alert('សូមបញ្ចូល Google Apps Script Web App URL និង Access Token ជាមុនសិន!');
-    switchTab('settings');
-    document.getElementById('setting-gsheet-url')?.focus();
+  if (!url) {
+    if (!silent) {
+      alert('សូមបញ្ចូល Google Apps Script Web App URL ជាមុនសិន!');
+      switchTab('settings');
+      document.getElementById('setting-gsheet-url')?.focus();
+    }
     return;
   }
 
   googleSheetsUrl = url;
   localStorage.setItem('village_census_gsheet_url', url);
-  cloudAccessToken = token;
-  sessionStorage.setItem('village_census_cloud_token', token);
 
-  showToast('កំពុងបញ្ជូនទិន្នន័យទៅ Google Sheets...', 'info');
+  if (!silent) {
+    showToast('កំពុងបញ្ជូនទិន្នន័យទៅ Google Sheets...', 'info');
+  }
 
   try {
     const payload = {
@@ -1537,9 +1728,13 @@ window.syncToGoogleSheets = async function() {
       households
     };
     await cloudRequest(payload);
-    showToast('បាន Sync ទិន្នន័យទៅកាន់ Google Sheets ដោយជោគជ័យ!', 'success');
+    if (!silent) {
+      showToast('បាន Sync ទិន្នន័យទៅកាន់ Google Sheets ដោយជោគជ័យ!', 'success');
+    }
   } catch (err) {
-    alert('កំហុសក្នុងការ Sync ទៅ Google Sheets: ' + err.message);
+    if (!silent) {
+      alert('កំហុសក្នុងការ Sync ទៅ Google Sheets: ' + err.message);
+    }
   }
 };
 
@@ -1614,8 +1809,14 @@ function populateSettingsForm() {
   if (enumInput) {
     enumInput.value = enumeratorName || '';
   }
+  const pinInput = document.getElementById('setting-admin-pin');
+  if (pinInput) {
+    pinInput.value = localStorage.getItem('village_census_admin_pin') || adminPin || '1234';
+  }
   const tokenInput = document.getElementById('setting-cloud-token');
   if (tokenInput) tokenInput.value = cloudAccessToken;
+
+  updateUndoRedoButtons();
 }
 
 async function handleSettingsFormSubmit(e) {

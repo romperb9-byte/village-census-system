@@ -60,7 +60,17 @@
       </div>
 
       <!-- Right Action Buttons -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Undo and Redo Action Buttons -->
+        <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+          <button onclick="undoAction()" id="btn-undo" class="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed" title="មិនធ្វើវិញ (Undo)" disabled>
+            <i data-lucide="undo-2" class="w-4 h-4"></i>
+          </button>
+          <button onclick="redoAction()" id="btn-redo" class="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed" title="ធ្វើឡើងវិញ (Redo)" disabled>
+            <i data-lucide="redo-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+
         <!-- Cloud Status Badge -->
         <div id="cloud-sync-status-badge" class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
           <span id="cloud-sync-status-text">💾 Local Mode</span>
@@ -655,6 +665,68 @@
           </div>
         </div>
 
+        <!-- Admin Security & Clear Data Section (Admin Only) -->
+        <div class="bg-white p-6 rounded-2xl border border-rose-200 shadow-sm">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-rose-100">
+            <div class="flex items-center gap-2">
+              <div class="p-2 bg-rose-100 text-rose-700 rounded-lg">
+                <i data-lucide="shield-alert" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-800 text-base">តំបន់សុវត្ថិភាព Admin (Admin Security Zone)</h3>
+                <p class="text-xs text-slate-500">កំណត់លេខសម្ងាត់ Admin និងការលុបទិន្នន័យ (Clear Data) ដោយសុវត្ថិភាព</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Set Admin PIN -->
+            <div class="p-4 border border-slate-200 rounded-xl bg-slate-50">
+              <div class="flex items-center gap-1.5 font-bold text-xs text-slate-700 mb-1">
+                <i data-lucide="lock" class="w-4 h-4 text-indigo-600"></i>
+                <span>លេខសម្ងាត់ Admin (Admin PIN)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mb-2">ប្រើសម្រាប់អនុញ្ញាតការលុបទិន្នន័យ (Default: 1234)</p>
+              <div class="flex gap-2">
+                <input type="password" id="setting-admin-pin" placeholder="1234" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <button type="button" onclick="saveAdminPin()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shrink-0 transition">
+                  រក្សាទុក
+                </button>
+              </div>
+            </div>
+
+            <!-- History Actions (Undo / Redo) -->
+            <div class="p-4 border border-slate-200 rounded-xl bg-slate-50">
+              <div class="flex items-center gap-1.5 font-bold text-xs text-slate-700 mb-1">
+                <i data-lucide="history" class="w-4 h-4 text-indigo-600"></i>
+                <span>ប្រវត្តិប្រតិបត្តិការ (Undo / Redo)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mb-2">ស្តារទិន្នន័យថយក្រោយ ឬធ្វើឡើងវិញ</p>
+              <div class="flex gap-2">
+                <button type="button" onclick="undoAction()" id="btn-undo-settings" class="flex-1 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 transition disabled:opacity-40" disabled>
+                  <i data-lucide="undo-2" class="w-3.5 h-3.5"></i> Undo
+                </button>
+                <button type="button" onclick="redoAction()" id="btn-redo-settings" class="flex-1 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 transition disabled:opacity-40" disabled>
+                  <i data-lucide="redo-2" class="w-3.5 h-3.5"></i> Redo
+                </button>
+              </div>
+            </div>
+
+            <!-- Clear All Data (Admin Only) -->
+            <div class="p-4 border border-rose-200 rounded-xl bg-rose-50/50 text-center">
+              <div class="flex items-center justify-center gap-1.5 font-bold text-xs text-rose-800 mb-1">
+                <i data-lucide="trash-2" class="w-4 h-4 text-rose-600"></i>
+                <span>លុបទិន្នន័យទាំងអស់ (Clear All)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mb-2">មានតែ Admin ដែលមានលេខកូដសម្ងាត់ប៉ុណ្ណោះ</p>
+              <button type="button" onclick="openAdminClearModal()" class="w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center justify-center gap-1.5">
+                <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                <span>🗑️ Clear ទិន្នន័យ (Admin)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Backup & Restore Section -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="font-bold text-slate-800 text-base mb-4 flex items-center gap-2">
@@ -684,10 +756,10 @@
 
             <!-- Reset Demo -->
             <div class="p-4 border border-slate-200 rounded-xl bg-slate-50 text-center">
-              <i data-lucide="refresh-cw" class="w-6 h-6 mx-auto text-rose-600 mb-2"></i>
+              <i data-lucide="refresh-cw" class="w-6 h-6 mx-auto text-slate-600 mb-2"></i>
               <div class="font-bold text-sm text-slate-800 mb-1">ទិន្នន័យគំរូដើម</div>
               <p class="text-xs text-slate-500 mb-3">កំណត់ប្រព័ន្ធឡើងវិញទៅទិន្នន័យគំរូ</p>
-              <button onclick="resetDemoData()" class="w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition">
+              <button onclick="resetDemoData()" class="w-full py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition">
                 កំណត់ឡើងវិញ
               </button>
             </div>
@@ -697,6 +769,58 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: ADMIN CLEAR DATA CONFIRMATION (ADMIN ONLY) -->
+  <!-- ============================================== -->
+  <div id="admin-clear-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[1070] hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl border border-rose-200 animate-fade-in overflow-hidden">
+      <div class="p-4 border-b border-rose-100 flex justify-between items-center bg-rose-50">
+        <div class="font-bold text-rose-800 flex items-center gap-2">
+          <i data-lucide="shield-alert" class="w-5 h-5 text-rose-600"></i>
+          <span>ផ្ទៀងផ្ទាត់ Admin ដើម្បី Clear ទិន្នន័យ</span>
+        </div>
+        <button onclick="closeAdminClearModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="confirmAdminClearData(event)" class="p-5 space-y-4">
+        <div class="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
+          <p class="font-bold flex items-center gap-1">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+            <span>ការព្រមានសំខាន់៖</span>
+          </p>
+          <p>សកម្មភាពនេះនឹង **លុបទិន្នន័យខ្នងផ្ទះទាំងអស់ចេញពីប្រព័ន្ធ**។ មានតែ Admin ដែលមានលេខសម្ងាត់ប៉ុណ្ណោះដែលអាចធ្វើបាន។</p>
+          <p class="text-emerald-700 font-medium">💡 ប្រព័ន្ធនឹងរក្សាទុក Snapshot ដោយស្វ័យប្រវត្តិ ដូច្នេះលោកអ្នកអាចចុច <strong>Undo / Redo</strong> ដើម្បីយកទិន្នន័យត្រឡប់មកវិញបានគ្រប់ពេល។</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">
+            បញ្ចូលលេខសម្ងាត់ Admin (Admin PIN) *
+          </label>
+          <input type="password" id="admin-clear-pin-input" placeholder="បញ្ចូល PIN (Default: 1234)" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-rose-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">
+            វាយពាក្យ <span class="text-rose-600 font-bold font-mono">លុប</span> ឬ <span class="text-rose-600 font-bold font-mono">CONFIRM</span> ដើម្បីបញ្ជាក់ *
+          </label>
+          <input type="text" id="admin-clear-word-input" placeholder="វាយពាក្យ លុប" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-rose-500 focus:outline-none">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeAdminClearModal()" class="px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-semibold rounded-lg transition">
+            បោះបង់
+          </button>
+          <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>យល់ព្រម Clear ទិន្នន័យទាំងអស់</span>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- ============================================== -->
