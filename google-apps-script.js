@@ -119,6 +119,16 @@ function doPost(e) {
 
     const action = data.action || "SAVE_HOUSEHOLD";
 
+    // Update only village administration settings. This avoids overwriting
+    // household data that may have been added from another phone.
+    if (action === "UPDATE_VILLAGE_INFO" && data.villageInfo) {
+      writeVillageInfo(infoSheet, data.villageInfo);
+      return jsonResponse({
+        status: "success",
+        message: "បានរក្សាទុកព័ត៌មានភូមិទៅ Cloud រួចរាល់!"
+      });
+    }
+
     // ករណីទី ១៖ បញ្ចូល ឬកែប្រែគ្រួសារតែមួយ (Single Household Real-time Multi-Device Sync)
     if (action === "SAVE_HOUSEHOLD" && data.household) {
       const hh = data.household;
@@ -219,6 +229,7 @@ function doPost(e) {
 
     // ករណីទី ៣៖ Bulk Sync ទិន្នន័យទាំងអស់ (Full Sync)
     if (data.households && Array.isArray(data.households)) {
+      if (data.villageInfo) writeVillageInfo(infoSheet, data.villageInfo);
       if (hhSheet.getLastRow() > 1) {
         hhSheet.getRange(2, 1, hhSheet.getLastRow() - 1, hhSheet.getLastColumn()).clearContent();
       }
@@ -286,6 +297,15 @@ function doPost(e) {
   } finally {
     if (lock.hasLock()) lock.releaseLock();
   }
+}
+
+function writeVillageInfo(infoSheet, info) {
+  const values = [
+    info.villageName || '', info.communeName || '', info.districtName || '',
+    info.provinceName || '', info.villageChief || '', info.chiefPhone || '',
+    info.censusYear || '', info.censusDate || ''
+  ];
+  infoSheet.getRange("B1:B8").setValues(values.map(function(value) { return [value]; }));
 }
 
 function setupSheets(ss) {

@@ -1458,7 +1458,7 @@ function populateSettingsForm() {
   if (tokenInput) tokenInput.value = cloudAccessToken;
 }
 
-function handleSettingsFormSubmit(e) {
+async function handleSettingsFormSubmit(e) {
   e.preventDefault();
   villageInfo.villageName = document.getElementById('setting-village-name').value.trim();
   villageInfo.communeName = document.getElementById('setting-commune-name').value.trim();
@@ -1484,7 +1484,16 @@ function handleSettingsFormSubmit(e) {
   saveVillageInfo();
   renderAll();
   updateCloudSyncBadge();
-  showToast('បានរក្សាទុកការកំណត់រដ្ឋបាលភូមិដោយជោគជ័យ!', 'success');
+  showToast('បានរក្សាទុកការកំណត់ក្នុងទូរស័ព្ទនេះរួចរាល់!', 'success');
+
+  if (googleSheetsUrl && cloudAccessToken) {
+    try {
+      await cloudRequest({ action: 'UPDATE_VILLAGE_INFO', villageInfo });
+      showToast('☁️ បាន Sync ព័ត៌មានភូមិទៅគ្រប់ទូរស័ព្ទរួចរាល់!', 'success');
+    } catch (err) {
+      showToast(`រក្សាទុកក្នុងទូរស័ព្ទរួច ប៉ុន្តែ Cloud មានបញ្ហា៖ ${err.message}`, 'error');
+    }
+  }
 }
 
 // Navigation Tabs
