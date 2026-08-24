@@ -64,8 +64,8 @@ function csvCell(value) {
 }
 
 function getCloudCredentials() {
-  const url = document.getElementById('setting-gsheet-url')?.value.trim() || googleSheetsUrl;
-  const token = document.getElementById('setting-cloud-token')?.value.trim() || cloudAccessToken;
+  const url = document.getElementById('setting-gsheet-url')?.value.trim() || googleSheetsUrl || DEFAULT_GSHEET_URL;
+  const token = document.getElementById('setting-cloud-token')?.value.trim() || cloudAccessToken || '';
   return { url, token };
 }
 
@@ -87,11 +87,12 @@ function validateImportedData(data) {
 
 async function cloudRequest(payload) {
   const { url, token } = getCloudCredentials();
-  if (!url || !token) throw new Error('សូមបញ្ចូល Cloud URL និង Access Token ក្នុងផ្ទាំងការកំណត់។');
+  if (!url) throw new Error('ពុំទាន់មាន Cloud URL ក្នុងផ្ទាំងការកំណត់ឡើយ។');
+  const bodyPayload = token ? { ...payload, token } : payload;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ ...payload, token })
+    body: JSON.stringify(bodyPayload)
   });
   const data = await response.json();
   if (!response.ok || data.status !== 'success') throw new Error(data.message || `HTTP ${response.status}`);
@@ -161,10 +162,17 @@ document.addEventListener('DOMContentLoaded', () => {
   renderAll();
   updateCloudSyncBadge();
 
-  // Auto fetch from Google Sheets if URL configured
-  if (googleSheetsUrl && cloudAccessToken) {
+  // 1. Auto fetch latest shared census data from Google Sheets immediately
+  if (googleSheetsUrl) {
     fetchFromGoogleSheets(true); // silent background fetch
   }
+
+  // 2. Real-time auto-polling every 15 seconds so all phones stay updated
+  setInterval(() => {
+    if (googleSheetsUrl && !document.hidden) {
+      fetchFromGoogleSheets(true);
+    }
+  }, 15000);
 });
 
 // Load Data from LocalStorage or Sample Data
@@ -1387,9 +1395,9 @@ window.syncToGoogleSheets = async function() {
 
 window.fetchFromGoogleSheets = async function(silent = false) {
   const { url, token } = getCloudCredentials();
-  if (!url || !token) {
+  if (!url) {
     if (!silent) {
-      alert('សូមបញ្ចូល Google Apps Script Web App URL និង Access Token ជាមុនសិន!');
+      alert('សូមបញ្ចូល Google Apps Script Web App URL ជាមុនសិន!');
       switchTab('settings');
       document.getElementById('setting-gsheet-url')?.focus();
     }
@@ -1398,8 +1406,6 @@ window.fetchFromGoogleSheets = async function(silent = false) {
 
   googleSheetsUrl = url;
   localStorage.setItem('village_census_gsheet_url', url);
-  cloudAccessToken = token;
-  sessionStorage.setItem('village_census_cloud_token', token);
   updateCloudSyncBadge();
 
   if (!silent) {
@@ -1408,7 +1414,9 @@ window.fetchFromGoogleSheets = async function(silent = false) {
 
   try {
     const requestUrl = new URL(url);
-    requestUrl.searchParams.set('token', token);
+    if (token) {
+      requestUrl.searchParams.set('token', token);
+    }
     const res = await fetch(requestUrl.toString());
     const rawData = await res.json();
     if (!res.ok || rawData.status !== 'success') {
@@ -1423,7 +1431,9 @@ window.fetchFromGoogleSheets = async function(silent = false) {
       saveHouseholds();
       renderAll();
       updateCloudSyncBadge();
-      showToast(`☁️ បានទាញយកទិន្នន័យចុងក្រោយ (${toKhmerNum(households.length)} គ្រួសារ) ពី Cloud!`, 'success');
+      if (!silent) {
+        showToast(`☁️ បានទាញយកទិន្នន័យចុងក្រោយ (${toKhmerNum(households.length)} គ្រួសារ) ពី Cloud!`, 'success');
+      }
     } else {
       if (!silent) alert('មិនអាចអានទិន្នន័យពី Google Sheets បានទេ៖ ' + (data.message || 'Unknown error'));
     }
