@@ -99,23 +99,87 @@ async function cloudRequest(payload) {
   return data;
 }
 
-// Calculate age from DOB
-function calculateAge(dobString) {
-  if (!dobString) return 0;
-  const dob = new Date(dobString);
-  const diffMs = Date.now() - dob.getTime();
-  const ageDt = new Date(diffMs);
-  return Math.abs(ageDt.getUTCFullYear() - 1970);
+// Parse any date format (DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, YYYY)
+function parseDateFlexible(dateStr) {
+  if (!dateStr) return null;
+  const str = String(dateStr).trim();
+  
+  // Convert Khmer numerals to Western if any
+  const normalizedStr = str.replace(/[០-៩]/g, d => khmerDigits.indexOf(d).toString());
+
+  // Format: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  const dmyMatch = normalizedStr.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    return new Date(year, month, day);
+  }
+
+  // Format: YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = normalizedStr.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    return new Date(year, month, day);
+  }
+
+  // Format: YYYY only (e.g. 1999)
+  const yOnlyMatch = normalizedStr.match(/^(\d{4})$/);
+  if (yOnlyMatch) {
+    const year = parseInt(yOnlyMatch[1], 10);
+    return new Date(year, 0, 1);
+  }
+
+  const parsed = new Date(normalizedStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
 
-// Format Date to Khmer display
+// Calculate age from DOB (supports 18/01/1999, 1999-01-18, 1999)
+function calculateAge(dobString) {
+  if (!dobString) return 0;
+  const parsed = parseDateFlexible(dobString);
+  if (!parsed) return 0;
+  const now = new Date();
+  let age = now.getFullYear() - parsed.getFullYear();
+  const m = now.getMonth() - parsed.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < parsed.getDate())) {
+    age--;
+  }
+  return Math.max(0, age);
+}
+
+// Format Date to Khmer display (DD/MM/YYYY)
 function formatDateKh(dateStr) {
   if (!dateStr) return '---';
-  const parts = dateStr.split('-');
-  if (parts.length === 3) {
-    return `${toKhmerNum(parts[2])}/${toKhmerNum(parts[1])}/${toKhmerNum(parts[0])}`;
+  const str = String(dateStr).trim();
+  
+  // If user only typed 4-digit year, show just the year
+  if (/^\d{4}$/.test(str)) {
+    return toKhmerNum(str);
   }
-  return dateStr;
+
+  const parsed = parseDateFlexible(str);
+  if (!parsed) return dateStr;
+
+  const d = String(parsed.getDate()).padStart(2, '0');
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const y = parsed.getFullYear();
+  return `${toKhmerNum(d)}/${toKhmerNum(m)}/${toKhmerNum(y)}`;
+}
+
+// Helper to format date into standard DD/MM/YYYY for input boxes
+function formatDOBForInput(dobVal) {
+  if (!dobVal) return '';
+  const str = String(dobVal).trim();
+  if (/^\d{4}$/.test(str)) return str;
+  const parsed = parseDateFlexible(str);
+  if (!parsed) return str;
+  const d = String(parsed.getDate()).padStart(2, '0');
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const y = parsed.getFullYear();
+  return `${d}/${m}/${y}`;
 }
 
 // Poverty Status Helper
@@ -1080,8 +1144,11 @@ window.addMemberRow = function(memberData = {}) {
       </div>
 
       <div>
-        <label class="block text-xs text-slate-600 mb-1 font-medium">ថ្ងៃខែឆ្នាំកំណើត *</label>
-        <input type="date" class="member-dob w-full border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none" required value="${memberData.dob || ''}">
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs text-slate-600 font-medium">ថ្ងៃខែឆ្នាំកំណើត *</label>
+          <span class="text-[10px] text-indigo-600 font-medium">ឧ. 18/01/1999 ឬ 1999</span>
+        </div>
+        <input type="text" class="member-dob w-full border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm bg-white" placeholder="18/01/1999" required value="${formatDOBForInput(memberData.dob)}">
       </div>
       <div>
         <label class="block text-xs text-slate-600 mb-1 font-medium">ទំនាក់ទំនងជាមួយមេគ្រួសារ</label>
