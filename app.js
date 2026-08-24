@@ -1632,9 +1632,13 @@ window.getCurrentGPSLocation = function() {
 // MAP PICKER MODAL (រើសទីតាំងដោយផ្ទាល់លើផែនទី)
 // ==========================================
 
+let pickerStreetLayer = null;
+let pickerSatelliteLayer = null;
+let isPickerSatelliteView = false;
+
 window.openMapPickerModal = function() {
-  const existingLat = parseFloat(document.getElementById('form-hh-lat')?.value) || 11.4528;
-  const existingLng = parseFloat(document.getElementById('form-hh-lng')?.value) || 104.9184;
+  const existingLat = parseFloat(document.getElementById('form-hh-lat')?.value) || villageInfo.centerLat || 12.3850;
+  const existingLng = parseFloat(document.getElementById('form-hh-lng')?.value) || villageInfo.centerLng || 103.7920;
 
   currentPickerLat = existingLat;
   currentPickerLng = existingLng;
@@ -1652,13 +1656,24 @@ window.openMapPickerModal = function() {
 
     pickerMapInstance = L.map('picker-leaflet-map').setView([currentPickerLat, currentPickerLng], 17);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    pickerStreetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(pickerMapInstance);
+      attribution: '© OpenStreetMap'
+    });
+
+    pickerSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles © Esri'
+    });
+
+    if (isPickerSatelliteView) {
+      pickerSatelliteLayer.addTo(pickerMapInstance);
+    } else {
+      pickerStreetLayer.addTo(pickerMapInstance);
+    }
 
     pickerMarker = L.marker([currentPickerLat, currentPickerLng], { draggable: true }).addTo(pickerMapInstance);
-    pickerMarker.bindPopup('<strong>ទីតាំងខ្នងផ្ទះ</strong><br>អូស Marker ដើម្បីកែប្រែទីតាំង').openPopup();
+    pickerMarker.bindPopup('<strong>ទីតាំងខ្នងផ្ទះ</strong><br>អូស Marker ឬចុចលើដំបូលផ្ទះ').openPopup();
 
     pickerMarker.on('dragend', function(e) {
       const pos = e.target.getLatLng();
@@ -1676,6 +1691,42 @@ window.openMapPickerModal = function() {
 
     pickerMapInstance.invalidateSize();
   }, 200);
+};
+
+window.togglePickerMapLayer = function() {
+  if (!pickerMapInstance || !pickerStreetLayer || !pickerSatelliteLayer) return;
+  const btnText = document.getElementById('picker-layer-text');
+  if (isPickerSatelliteView) {
+    pickerMapInstance.removeLayer(pickerSatelliteLayer);
+    pickerStreetLayer.addTo(pickerMapInstance);
+    isPickerSatelliteView = false;
+    if (btnText) btnText.textContent = '🛰️ ផ្កាយរណប';
+  } else {
+    pickerMapInstance.removeLayer(pickerStreetLayer);
+    pickerSatelliteLayer.addTo(pickerMapInstance);
+    isPickerSatelliteView = true;
+    if (btnText) btnText.textContent = '🗺️ ផែនទីផ្លូវ';
+  }
+};
+
+window.locateUserOnPickerMap = function() {
+  if (!navigator.geolocation) {
+    alert('ឧបករណ៍របស់អ្នកមិនគាំទ្រ GPS ឡើយ!');
+    return;
+  }
+  showToast('🎯 កំពុងស្វែងរក GPS...', 'info');
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    currentPickerLat = lat;
+    currentPickerLng = lng;
+    if (pickerMarker) pickerMarker.setLatLng([lat, lng]);
+    if (pickerMapInstance) pickerMapInstance.setView([lat, lng], 18);
+    document.getElementById('map-picker-coords-preview').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    showToast('✓ បានកំណត់ទីតាំងអ្នកលើផែនទី!', 'success');
+  }, (err) => {
+    alert('មិនអាចចាប់យក GPS បានទេ៖ ' + err.message);
+  }, { enableHighAccuracy: true, timeout: 10000 });
 };
 
 window.confirmMapPickerLocation = function() {
@@ -1699,9 +1750,12 @@ window.closeMapPickerModal = function() {
   document.getElementById('map-picker-modal').classList.remove('flex');
 };
 
-// ==========================================
-// VILLAGE FULL MAP & SINGLE HOUSE MODAL
-// ==========================================
+// Tile layers and user location instances
+let streetTileLayer = null;
+let satelliteTileLayer = null;
+let isSatelliteView = false;
+let userLocationMarker = null;
+let userAccuracyCircle = null;
 
 // Initialize Village Full Map
 window.initVillageMap = function() {
@@ -1715,8 +1769,8 @@ window.initVillageMap = function() {
     markerCountBadge.textContent = `📍 ${toKhmerNum(validHouseholds.length)}/${toKhmerNum(households.length)} ខ្នងផ្ទះមាន GPS`;
   }
 
-  let centerLat = 11.4528;
-  let centerLng = 104.9184;
+  let centerLat = villageInfo.centerLat || 12.3850;
+  let centerLng = villageInfo.centerLng || 103.7920;
 
   if (validHouseholds.length > 0) {
     centerLat = parseFloat(validHouseholds[0].latitude);
@@ -1726,14 +1780,27 @@ window.initVillageMap = function() {
   if (villageMapInstance) {
     villageMapInstance.remove();
     villageMapInstance = null;
+    userLocationMarker = null;
+    userAccuracyCircle = null;
   }
 
   villageMapInstance = L.map('village-leaflet-map').setView([centerLat, centerLng], 16);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  streetTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors'
-  }).addTo(villageMapInstance);
+  });
+
+  satelliteTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles © Esri'
+  });
+
+  if (isSatelliteView) {
+    satelliteTileLayer.addTo(villageMapInstance);
+  } else {
+    streetTileLayer.addTo(villageMapInstance);
+  }
 
   const markersGroup = L.featureGroup();
 
@@ -1769,7 +1836,7 @@ window.initVillageMap = function() {
           ផ្ទះលេខ ${toKhmerNum(hh.houseNumber)} (ក្រុម ${toKhmerNum(hh.groupNumber)})
         </div>
         <div style="font-size: 12px; color: #4338ca; font-weight: 600;">
-          មេគ្រួសារ៖ ${head.fullNameKh || '---'}
+          មេគ្រួសារ៖ ${escapeHTML(head.fullNameKh || '---')}
         </div>
         <div style="font-size: 11px; color: #64748b; margin: 4px 0;">
           សមាជិក៖ ${toKhmerNum(hh.members?.length || 0)} នាក់ | ស្ថានភាព៖ <strong>${pov.text}</strong>
@@ -1778,10 +1845,10 @@ window.initVillageMap = function() {
           GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
         </div>
         <div style="display: flex; gap: 4px;">
-          <button onclick="viewHouseholdDetail('${hh.id}')" style="background: #4f46e5; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer;">
+          <button onclick="viewHouseholdDetail('${hh.id}')" style="background: #4f46e5; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">
             មើលលម្អិត
           </button>
-          <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" style="background: #e0e7ff; color: #4338ca; text-decoration: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; display: inline-block;">
+          <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" style="background: #e0e7ff; color: #4338ca; text-decoration: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; display: inline-block;">
             Google Maps
           </a>
         </div>
@@ -1793,6 +1860,30 @@ window.initVillageMap = function() {
 
   markersGroup.addTo(villageMapInstance);
 
+  // Click on map to add household or see GPS
+  let tempClickMarker = null;
+  villageMapInstance.on('click', function(e) {
+    const clickLat = e.latlng.lat.toFixed(6);
+    const clickLng = e.latlng.lng.toFixed(6);
+
+    if (tempClickMarker) {
+      villageMapInstance.removeLayer(tempClickMarker);
+    }
+
+    tempClickMarker = L.popup()
+      .setLatLng(e.latlng)
+      .setContent(`
+        <div style="font-family: var(--font-khmer, sans-serif); text-align: center; min-width: 160px;">
+          <strong style="color: #1e293b; font-size: 12px;">📍 ទីតាំងដែលបានចុច</strong><br>
+          <span style="font-size: 11px; font-family: monospace; color: #64748b;">${clickLat}, ${clickLng}</span><br>
+          <button onclick="openAddHouseholdAtGPS('${clickLat}', '${clickLng}')" style="margin-top: 6px; background: #4f46e5; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">
+            ➕ បន្ថែមផ្ទះនៅទីតាំងនេះ
+          </button>
+        </div>
+      `)
+      .openOn(villageMapInstance);
+  });
+
   if (validHouseholds.length > 0) {
     try {
       villageMapInstance.fitBounds(markersGroup.getBounds().pad(0.2));
@@ -1802,6 +1893,127 @@ window.initVillageMap = function() {
   setTimeout(() => {
     if (villageMapInstance) villageMapInstance.invalidateSize();
   }, 300);
+};
+
+// Toggle Satellite vs Street map like Google Maps
+window.toggleMapTileLayer = function() {
+  if (!villageMapInstance || !streetTileLayer || !satelliteTileLayer) return;
+
+  const btnText = document.getElementById('map-layer-text');
+
+  if (isSatelliteView) {
+    villageMapInstance.removeLayer(satelliteTileLayer);
+    streetTileLayer.addTo(villageMapInstance);
+    isSatelliteView = false;
+    if (btnText) btnText.textContent = '🛰️ ផ្កាយរណប';
+    showToast('បានប្តូរទៅទិដ្ឋភាពផែនទីផ្លូវ (Street View)', 'info');
+  } else {
+    villageMapInstance.removeLayer(streetTileLayer);
+    satelliteTileLayer.addTo(villageMapInstance);
+    isSatelliteView = true;
+    if (btnText) btnText.textContent = '🗺️ ផែនទីផ្លូវ';
+    showToast('បានប្តូរទៅទិដ្ឋភាពផ្កាយរណប (Satellite View)', 'info');
+  }
+};
+
+// Locate user on village map (Like Google Maps My Location 🎯)
+window.locateUserOnVillageMap = function() {
+  if (!navigator.geolocation) {
+    alert('ឧបករណ៍ ឬ Browser របស់អ្នកមិនគាំទ្រប្រព័ន្ធ Geolocation GPS ឡើយ!');
+    return;
+  }
+
+  if (!villageMapInstance) {
+    switchTab('map');
+  }
+
+  showToast('🎯 កំពុងស្វែងរកទីតាំងបច្ចុប្បន្នរបស់អ្នក (GPS)...', 'info');
+
+  const onLocateSuccess = (position) => {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    const accuracy = Math.round(position.coords.accuracy || 0);
+
+    if (userLocationMarker) {
+      villageMapInstance.removeLayer(userLocationMarker);
+    }
+    if (userAccuracyCircle) {
+      villageMapInstance.removeLayer(userAccuracyCircle);
+    }
+
+    // Google Maps Style Blue Dot Icon
+    const userDotIcon = L.divIcon({
+      className: 'custom-map-pin',
+      html: `
+        <div style="position: relative;">
+          <div class="user-gps-pulse"></div>
+          <div class="user-gps-dot"></div>
+        </div>
+      `,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+
+    userAccuracyCircle = L.circle([lat, lng], {
+      radius: accuracy,
+      color: '#3b82f6',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.15,
+      weight: 1.5
+    }).addTo(villageMapInstance);
+
+    userLocationMarker = L.marker([lat, lng], { icon: userDotIcon }).addTo(villageMapInstance);
+
+    const userPopupHtml = `
+      <div style="font-family: var(--font-khmer, sans-serif); text-align: center; min-width: 175px;">
+        <strong style="color: #2563eb; font-size: 13px;">📍 ទីតាំងបច្ចុប្បន្នរបស់អ្នក</strong><br>
+        <span style="font-size: 11px; color: #64748b; font-family: monospace;">GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}</span><br>
+        <span style="font-size: 10px; color: #16a34a; font-weight: 600;">ភាពសុក្រឹត: ±${accuracy} ម៉ែត្រ</span><br>
+        <button onclick="openAddHouseholdAtGPS('${lat.toFixed(6)}', '${lng.toFixed(6)}')" style="margin-top: 8px; width: 100%; background: #4f46e5; color: white; border: none; padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <span>➕ បន្ថែមខ្នងផ្ទះនៅទីតាំងនេះ</span>
+        </button>
+      </div>
+    `;
+
+    userLocationMarker.bindPopup(userPopupHtml).openPopup();
+
+    villageMapInstance.flyTo([lat, lng], 18, {
+      animate: true,
+      duration: 1.2
+    });
+
+    showToast(`✓ បានកំណត់ទីតាំងអ្នក (ភាពសុក្រឹត ±${accuracy}m)`, 'success');
+  };
+
+  const onLocateError = (err) => {
+    if (err.code === 3 || err.code === 2) {
+      // Retry with network gps
+      navigator.geolocation.getCurrentPosition(onLocateSuccess, (err2) => {
+        alert('មិនអាចកំណត់ទីតាំង GPS បានទេ៖ ' + err2.message);
+      }, { enableHighAccuracy: false, timeout: 15000 });
+      return;
+    }
+    alert('មិនអាចចាប់យកទីតាំង GPS បានទេ៖ ' + err.message + ' (សូមប្រាកដថាបានបើក Location Permission)');
+  };
+
+  navigator.geolocation.getCurrentPosition(onLocateSuccess, onLocateError, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0
+  });
+};
+
+// Open Add Household Form with GPS coordinates prefilled
+window.openAddHouseholdAtGPS = function(lat, lng) {
+  openAddHouseholdModal();
+  document.getElementById('form-hh-lat').value = lat;
+  document.getElementById('form-hh-lng').value = lng;
+  const indicator = document.getElementById('gps-accuracy-indicator');
+  const indicatorText = document.getElementById('gps-accuracy-text');
+  if (indicator && indicatorText) {
+    indicator.classList.remove('hidden');
+    indicatorText.textContent = `បានចាប់យក GPS ពីផែនទី៖ ${lat}, ${lng}`;
+  }
 };
 
 window.refreshVillageMap = function() {

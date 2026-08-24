@@ -76,25 +76,56 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* GPS Pulse effect for current location */
-.gps-pulse {
-  width: 14px;
-  height: 14px;
-  background: #3b82f6;
-  border-radius: 50%;
-  box-shadow: 0 0 0 rgba(59, 130, 246, 0.4);
-  animation: pulse-ring 1.5s infinite;
+/* Google Maps Floating Controls */
+.map-floating-btn {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border: none;
+}
+.map-floating-btn:hover {
+  background: #f8fafc;
+  transform: scale(1.05);
+}
+.map-floating-btn:active {
+  transform: scale(0.95);
 }
 
-@keyframes pulse-ring {
+/* User Live GPS Marker (Google Maps Style Blue Dot) */
+.user-gps-dot {
+  width: 18px;
+  height: 18px;
+  background-color: #2563eb;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.8);
+  position: relative;
+}
+
+.user-gps-pulse {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.25);
+  animation: gps-wave 2s infinite;
+}
+
+@keyframes gps-wave {
   0% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
+    transform: scale(0.6);
+    opacity: 1;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    transform: scale(1.6);
+    opacity: 0;
   }
 }
 
